@@ -97,7 +97,8 @@ cd ..
 **Primary Method: Web Interface**
 
 ```bash
-node ui/server.js
+cd ui/
+npm run dev #run the website interface from ui dir
 ```
 
 Access the interface at `http://localhost:3000`
