@@ -103,18 +103,6 @@ npm run dev #run the website interface from ui dir
 
 Access the interface at `http://localhost:3000`
 
-**Alternative: CLI Automation**
-
-```bash
-node automasi/index.js
-```
-
-**Docker Deployment (CLI Only)**
-
-```bash
-docker-compose up -d --build
-```
-
 ## Project Structure
 
 ```
