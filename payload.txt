@@ -1,0 +1,74 @@
+(async () => {
+    console.log("🔍 Memulai pemindaian data...");
+
+    // Token yang kamu berikan tadi saya bungkus sebagai string murni
+    const token = "eyJhbGciOiJIUzI1NiIsImtpZCI6InE3YTdLV0hkaEY3WmZBejIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3dvY2duYnJ1cmx2bWNmcGpwZ3hvLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJkMzE1YzA2Mi03NDBjLTRhY2ItOWY3ZS01ODhjM2Q4NDA0YTMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzY5MTgyOTEyLCJpYXQiOjE3NjkxNzkzMTIsImVtYWlsIjoiMDA4ODUyNTU4N0BzaXByYWtlcmluLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzY5MTc5MzEyfV0sInNlc3Npb25faWQiOiJkMThhOTkxZi0zNzViLTRlNWItYjAxNC1mMTM2OWUyZTljNzEiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.19qHTBfP0YyzNfMt0GFBbJ6Sx_1pEeOyk6h8ZOd_K6U";
+    
+    // Email kamu juga sudah terbaca dari token: 0088525587@siprakerin.com
+    const email = "0088525587@siprakerin.com";
+
+    const headers = {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvY2duYnJ1cmx2bWNmcGpwZ3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MDQ3MDYsImV4cCI6MjA2Nzk4MDcwNn0.pc6N77IAYpPCccSN9CRTNk4bL1kyU0p3LkAiV-VVfpw',
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+    };
+
+    try {
+        // 1. Ambil Detail Profil (Penting untuk dapat id_siswa, id_kelas, id_industri)
+        const profileRes = await fetch(`https://wocgnbrurlvmcfpjpgxo.supabase.co/rest/v1/siswa?select=id_siswa,id_kelas,id_industri&email=eq.${email}`, { headers });
+        const profile = await profileRes.json();
+        
+        console.log("📌 DATA PROFIL KAMU:");
+        console.table(profile);
+
+        // 2. List Semua Tabel Database
+        const schemaRes = await fetch("https://wocgnbrurlvmcfpjpgxo.supabase.co/rest/v1/", { headers });
+        const schema = await schemaRes.json();
+        
+        console.log("📂 DAFTAR TABEL YANG DITEMUKAN:");
+        console.table(Object.keys(schema.definitions));
+
+    } catch (err) {
+        console.error("❌ Terjadi kesalahan:", err);
+    }
+})();
+
+(async () => {
+    console.log("🔍 Investigasi database dimulai...");
+
+    const storageKey = Object.keys(localStorage).find(key => key.includes('auth-token'));
+    const session = JSON.parse(localStorage.getItem(storageKey));
+    const token = "eyJhbGciOiJIUzI1NiIsImtpZCI6InE3YTdLV0hkaEY3WmZBejIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3dvY2duYnJ1cmx2bWNmcGpwZ3hvLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJkMzE1YzA2Mi03NDBjLTRhY2ItOWY3ZS01ODhjM2Q4NDA0YTMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzY5MTgyOTEyLCJpYXQiOjE3NjkxNzkzMTIsImVtYWlsIjoiMDA4ODUyNTU4N0BzaXByYWtlcmluLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzY5MTc5MzEyfV0sInNlc3Npb25faWQiOiJkMThhOTkxZi0zNzViLTRlNWItYjAxNC1mMTM2OWUyZTljNzEiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.19qHTBfP0YyzNfMt0GFBbJ6Sx_1pEeOyk6h8ZOd_K6U";
+
+    if (!token) return console.error("❌ Login dulu cuy!");
+
+    const headers = {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvY2duYnJ1cmx2bWNmcGpwZ3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MDQ3MDYsImV4cCI6MjA2Nzk4MDcwNn0.pc6N77IAYpPCccSN9CRTNk4bL1kyU0p3LkAiV-VVfpw',
+        'Authorization': `Bearer ${token}`
+    };
+
+    try {
+        // STEP 1: Liat daftar semua tabel yang ada (Discovery)
+        const schemaRes = await fetch("https://wocgnbrurlvmcfpjpgxo.supabase.co/rest/v1/", { headers });
+        const schema = await schemaRes.json();
+        const daftarTabel = Object.keys(schema.definitions);
+        
+        console.log("📂 Tabel yang tersedia di database ini:");
+        console.table(daftarTabel);
+
+        // STEP 2: Cari tabel yang namanya mirip 'siswa', 'users', 'profil', atau 'data_diri'
+        // Misal kita coba cari di 'users' atau 'identitas' jika ada di daftarTabel
+        // Coba ganti 'siswa' di bawah ini dengan nama tabel yang paling mirip dari hasil console.table di atas
+        const namaTabelMungkin = daftarTabel.find(t => t.includes('siswa') || t.includes('user') || t.includes('profil')) || "daftar_jurnal";
+        
+        console.log(`📡 Mencoba menarik data dari tabel: ${namaTabelMungkin}`);
+        const dataRes = await fetch(`https://wocgnbrurlvmcfpjpgxo.supabase.co/rest/v1/${namaTabelMungkin}?select=*&limit=1`, { headers });
+        const data = await dataRes.json();
+        
+        console.log(`✨ Isi tabel ${namaTabelMungkin}:`);
+        console.table(data);
+
+    } catch (err) {
+        console.error("❌ Error:", err.message);
+    }
+})();
