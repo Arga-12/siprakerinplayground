@@ -54,8 +54,31 @@ cd siprakerinplayground
 
 ### 2. Install Dependencies
 
+Both `ui/` and `automasi/` folders have their own dependencies:
+
 ```bash
+# Install UI dependencies
+cd ui
 npm install
+
+# Install automation dependencies
+cd ../automasi
+npm install
+
+# Return to root
+cd ..
+```
+
+Or use this one-liner:
+
+```bash
+(cd ui && npm install) && (cd automasi && npm install)
+```
+
+Or run the setup script:
+
+```bash
+./setup.sh
 ```
 
 ### 3. Environment Configuration
@@ -182,7 +205,7 @@ This project is provided for educational and experimental purposes only. It is n
 
 Copyright 2026 4rgandull. All rights reserved.
 
-Licensed for personal and educational use only. Redistribution or commercial use requires explicit permission *gelok, iyak iyak punya sendiri*.
+Licensed for personal and educational use only. Redistribution or commercial use requires explicit permission _gelok, iyak iyak punya sendiri_.
 
 ## Acknowledgments
 
