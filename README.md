@@ -48,8 +48,8 @@ This project serves as a learning platform for exploring Supabase REST APIs, aut
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/4rgandull/absensiprakerin.git
-cd absensiprakerin
+git https://github.com/Arga-12/siprakerinplayground.git
+cd siprakerinplayground
 ```
 
 ### 2. Install Dependencies
