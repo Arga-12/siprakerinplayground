@@ -52,8 +52,8 @@ PASSWORD=your_password_here
 
 2. bikin file `.env` dan paste isinya disini
 ```
-SUPABASE_URL=kunjungi protofolio grafikarsa user Argandull
-SUPABASE_ANON_KEY=kunjungi protofolio grafikarsa user Argandull
+SUPABASE_URL=kunjungi portofolio grafikarsa user Argandull
+SUPABASE_ANON_KEY=kunjungi portofolio grafikarsa user Argandull
 EMAIL=your_email@example.com
 PASSWORD=your_password_here
 ```
