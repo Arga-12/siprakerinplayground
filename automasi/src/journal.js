@@ -15,11 +15,9 @@ async function getStudentDetails(user) {
 
     // 2. Use User ID from Login (This is the id_siswa)
     const id_siswa = user.id;
-    console.log(`User ID (id_siswa) ditemukan: ${id_siswa}`);
 
     // If we are missing class/industry, try to fetch from DB
     if (!config.ID_KELAS || !config.ID_INDUSTRI) {
-        console.log('Mencari detail kelas/industri di database...');
 
         try {
             const { data, error } = await supabase
