@@ -22,7 +22,19 @@ async function getStudentDetails(user) {
         try {
             const { data, error } = await supabase
                 .from('daftar_siswa')
-                .select('id_kelas, id_industri, nama, nis, keahlian')
+                .select(`
+                    id_kelas, 
+                    id_industri, 
+                    nama, 
+                    nis, 
+                    keahlian,
+                    daftar_industri (
+                        nama_industri
+                    ),
+                    daftar_kelas (
+                        nama_kelas
+                    )
+                `)
                 .eq('id_siswa', id_siswa) // Query by UUID is safer/faster
                 .single();
 
@@ -34,6 +46,8 @@ async function getStudentDetails(user) {
                     id_siswa,
                     id_kelas: data.id_kelas,
                     id_industri: data.id_industri,
+                    nama_kelas: data.daftar_kelas?.nama_kelas || 'Unknown',
+                    nama_industri: data.daftar_industri?.nama_industri || 'Unknown',
                     nama: data.nama,
                     nis: data.nis,
                     keahlian: data.keahlian
