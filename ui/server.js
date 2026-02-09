@@ -35,6 +35,7 @@ let sessionDefaults = {
     id_siswa: '',
     id_kelas: '',
     id_industri: '',
+    nama_industri: '',
     nama: '',
     nis: '',
     keahlian: ''
@@ -60,6 +61,7 @@ async function startServer() {
             id_siswa: details.id_siswa || '',
             id_kelas: details.id_kelas || '',
             id_industri: details.id_industri || '',
+            nama_industri: details.nama_industri || '',
             nama: details.nama || '',
             nis: details.nis || '',
             keahlian: details.keahlian || ''
