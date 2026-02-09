@@ -121,6 +121,13 @@ npm run dev
 
 ---
 
+### Untuk Mengupdate tool
+
+```bash
+# Dari /siprakerinplayground (root folder)
+git pull
+```
+
 ### Script yang Tersedia
 
 Di folder `/ui`, kamu bisa gunakan script berikut:
