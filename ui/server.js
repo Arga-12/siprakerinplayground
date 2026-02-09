@@ -46,7 +46,7 @@ let journalHistory = [];
 // --- INITIALIZE SERVER ---
 async function startServer() {
     try {
-        addLog('AUTH', 'Initiating login via automation module...');
+        addLog('AUTH', 'Initiating login...');
         const { user, token } = await login();
         sessionToken = token; // Store token for later use
         addLog('AUTH', 'Login successful!');
@@ -225,7 +225,7 @@ app.post('/submit', async (req, res) => {
             throw new Error("Missing Internal Credentials. Please check .env or server logs.");
         }
 
-        addLog('FETCH', 'Sending data to Supabase via automation module...');
+        addLog('FETCH', 'Sending data to Supabase...');
 
         // Call the imported logic with tanggal parameter
         await submitJournal(null, kegiatan, studentIds, keterangan, tanggal);

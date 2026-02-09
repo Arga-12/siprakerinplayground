@@ -15,8 +15,6 @@ async function login() {
             throw error;
         }
 
-        console.log('Login berhasil. Token terbaru telah dibuat.');
-
         // Return both token and user object (which contains the UUID)
         return {
             token: data.session.access_token,
