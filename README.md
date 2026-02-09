@@ -64,4 +64,15 @@ npm run dev
 # Pastikan dulu file `.env` berada diluar /ui dan /automasi serta sudah diisi kredensial asli mu
 ```
 
+**Untuk menyalakan ulang server localnya**
+```
+#dari /siprakerinplayground
+
+#pindah ke /ui
+cd ui
+
+#dan jalankan server localnya
+npm run dev
+```
+
 Well done, silahkan isi kehadiran kemarin jika lupa.. `jangan boong lo yaa :3`
