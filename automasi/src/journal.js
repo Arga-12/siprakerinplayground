@@ -167,8 +167,8 @@ async function getJournalHistory(token, userId, { page = 1, limit = 10 } = {}) {
         // Calculate Offset
         const offset = (page - 1) * limit;
 
-        // 1. Fetch Jurnal Utama (Paginated)
-        // Menggunakan param offset & limit di URL
+        // Fetch Jurnal (Paginated)
+        // Data izin sekarang sudah terintegrasi di daftar_jurnal dengan keterangan 'izin'
         const queryJurnal = `?select=*&id_siswa=eq.${userId}&order=tanggal.desc&limit=${limit}&offset=${offset}`;
         const journals = await fetchTable('daftar_jurnal', queryJurnal);
 
@@ -177,36 +177,8 @@ async function getJournalHistory(token, userId, { page = 1, limit = 10 } = {}) {
             return [];
         }
 
-        // 2. Fetch Detail Izin (jika ada yang izin)
-        const izinJournals = journals.filter(j => j.keterangan === 'izin');
-        let izinMap = {};
-
-        if (izinJournals.length > 0) {
-            const journalIds = izinJournals.map(j => j.id_jurnal);
-            const queryIds = `(${journalIds.join(',')})`;
-
-            // Fetch daftar_izin
-            const izinData = await fetchTable('daftar_izin', `?select=*&id_jurnal=in.${queryIds}`);
-
-            // Buat Map id_jurnal -> data_izin untuk O(1) access
-            izinData.forEach(item => {
-                izinMap[item.id_jurnal] = item;
-            });
-        }
-
-        // 3. Gabungkan Data
-        const enrichedJournals = journals.map(j => {
-            if (j.keterangan === 'izin' && izinMap[j.id_jurnal]) {
-                return {
-                    ...j,
-                    detail_izin: izinMap[j.id_jurnal] // Attach detail foto/etc
-                };
-            }
-            return j;
-        });
-
-        console.log(`Berhasil load ${enrichedJournals.length} item history.`);
-        return enrichedJournals;
+        console.log(`Berhasil load ${journals.length} item history.`);
+        return journals;
 
     } catch (err) {
         console.error("Gagal mengambil history jurnal:", err.message);
