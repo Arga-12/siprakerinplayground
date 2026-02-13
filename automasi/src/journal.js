@@ -137,7 +137,7 @@ async function submitJournal(token, activity, studentIds, keterangan = 'hadir', 
     }
 
     console.log('Absen siswa berhasil dikirim:', data);
-    return data;
+    return data;hadir
 }
 
 // Updated with Pagination Support
@@ -168,7 +168,6 @@ async function getJournalHistory(token, userId, { page = 1, limit = 10 } = {}) {
         const offset = (page - 1) * limit;
 
         // Fetch Jurnal (Paginated)
-        // Data izin sekarang sudah terintegrasi di daftar_jurnal dengan keterangan 'izin'
         const queryJurnal = `?select=*&id_siswa=eq.${userId}&order=tanggal.desc&limit=${limit}&offset=${offset}`;
         const journals = await fetchTable('daftar_jurnal', queryJurnal);
 

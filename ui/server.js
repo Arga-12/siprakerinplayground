@@ -178,13 +178,13 @@ app.post('/submit', async (req, res) => {
     }
 
     // Validate keterangan - only 'hadir' and 'libur' allowed
-    const validKeterangan = ['hadir', 'libur'];
+    const validKeterangan = ['hadir', 'libur', 'izin'];
     if (!validKeterangan.includes(keterangan)) {
         addLog('WARN', `Submission rejected: Invalid keterangan "${keterangan}"`);
         return res.render('index', {
             defaults: req.body,
             message: null,
-            error: 'Keterangan tidak valid! Hanya "hadir" atau "libur" yang diperbolehkan.',
+            error: 'Keterangan tidak valid! Hanya "hadir" atau "libur" dan "izin" yang diperbolehkan.',
             logs: systemLogs,
             supabaseUrl: process.env.SUPABASE_URL
         });
