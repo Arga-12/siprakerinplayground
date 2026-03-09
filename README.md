@@ -3,10 +3,10 @@
 Ini adalah project gabut yang aku buat untuk membantu ku bermain-main supabase mengunakan fetching dengan **JavaScript** _hehe_. Dengan memiliki logic fetching2 yang ada seperti:
 
 - Menggunakan kredensial user dari `.env` untuk memiliki token bearer yang nanti digunakan sebagai izin mengambil dan mengirim data fetching di supabase **Siprakerin**
-- Mengirim (memfetching) data kehadiran dengan keterangan `hadir` dan `libur` saja (untuk saat ini, karena keterangan `izin` gadapat izin untuk ngakses bucket sebagai tingkat user biasa, masih belum bisa mengabsen dengan keterangan `izinnnnnnnn`), serta bisa memilih tanggal kehadiran yang ingin dipilih.
+- Mengirim (memfetching) data kehadiran dengan keterangan `hadir` `izin` dan `libur`, serta bisa memilih tanggal kehadiran yang ingin dipilih.
 - Automasi hadir sekali setiap booting laptop atau pc akan diterapkan terlebih dahulu menggunakan `linux` (karena punya setting untuk menjalankan command setiap booting) _cooming soon~_
 
-> Be a white hat not black hat, ok?
+> Notes: untuk keterangan `izin`, foto surat berubah menjadi template yang diberikan oleh siprakerin. Ubah foto surat izin template dengan surat izin yang asli (kalau bisa, entah kenapa logic kalau foto template menjadi **read-only**)
 
 Logic yang kuberikan hanya mengbypass peraturan tidak bisa memilih tanggal kehadiran saja, serta mengeset nilai dari keterangan dan kegiatan:
 
