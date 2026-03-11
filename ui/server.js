@@ -1,13 +1,29 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const multer = require('multer');
 const path = require('path');
 const { login } = require('../automasi/src/auth');
-const { getStudentDetails, submitJournal, getJournalHistory, deleteJournal, updateJournal } = require('../automasi/src/journal');
+const { getStudentDetails, submitJournal, getJournalHistory, deleteJournal, updateJournal, checkKemarinIzin, getLastIzinFoto, getYesterdayDate, uploadFotoIzin } = require('../automasi/src/journal');
 
 // Note: Config loading is now handled by automasi/src/config.js which is imported by auth/journal
 // But we might want to ensure dotenv is loaded for this file if we access process.env directly here too.
 const dotenv = require('dotenv');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Multer: memory storage (file tidak disimpan di disk, langsung ke Supabase Storage)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // Max 5MB
+    fileFilter: (req, file, cb) => {
+        // Hanya izinkan gambar dan PDF
+        const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Format file tidak didukung. Gunakan JPG, PNG, WebP, atau PDF.'));
+        }
+    }
+});
 
 const app = express();
 const port = 3000;
@@ -140,6 +156,38 @@ app.get('/api/journals', async (req, res) => {
     }
 });
 
+// GET: Cek apakah kemarin izin (dan apakah ada foto kemarin)
+// Meniru logika platform asli yang cek sebelum tampilkan toggle izin lanjutan
+// Query param: ?tanggal=YYYY-MM-DD (opsional, default hari ini)
+app.get('/api/check-kemarin-izin', async (req, res) => {
+    try {
+        const tanggal = req.query.tanggal || new Date().toISOString().split('T')[0];
+        const kemarin = getYesterdayDate(tanggal);
+
+        const isKemarinIzin = await checkKemarinIzin(sessionDefaults.id_siswa, tanggal);
+
+        let fotoKemarin = null;
+        if (isKemarinIzin) {
+            // Jika kemarin izin, cek juga apakah ada foto kemarin
+            fotoKemarin = await getLastIzinFoto(sessionDefaults.id_siswa, tanggal);
+        }
+
+        res.json({
+            tanggal_dicek: kemarin,
+            tanggal_submit: tanggal,
+            is_kemarin_izin: isKemarinIzin,
+            // true = toggle izin lanjutan tersedia (seperti platform asli)
+            izin_lanjutan_tersedia: isKemarinIzin,
+            // ada foto = bisa reuse, tidak ada = user perlu upload manual
+            foto_kemarin_ada: !!fotoKemarin,
+            foto_kemarin_path: fotoKemarin || null
+        });
+    } catch (err) {
+        addLog('ERROR', `check-kemarin-izin error: ${err.message}`);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/', (req, res) => {
     res.render('index', {
         defaults: sessionDefaults,
@@ -150,7 +198,8 @@ app.get('/', (req, res) => {
     });
 });
 
-app.post('/submit', async (req, res) => {
+// POST /submit - gunakan multer untuk handle multipart/form-data (ada file upload)
+app.post('/submit', upload.single('foto_izin'), async (req, res) => {
     const { kegiatan, keterangan, tanggal } = req.body;
 
     addLog('INFO', 'Processing journal submission...');
@@ -231,8 +280,37 @@ app.post('/submit', async (req, res) => {
 
         addLog('FETCH', 'Sending data to Supabase...');
 
+        // Auto-detect izin lanjutan — meniru logika platform asli siprakerin.com
+        // Cek apakah jurnal kemarin (H-1) berketerangan 'izin'
+        let izinLanjutan = false;
+        if (keterangan === 'izin') {
+            izinLanjutan = await checkKemarinIzin(sessionDefaults.id_siswa, tanggal);
+            addLog('INFO', `Izin lanjutan: ${izinLanjutan ? 'AKTIF (kemarin izin, foto dipakai ulang)' : 'nonaktif (perlu upload foto baru)'}`);
+        }
+
         // Call the imported logic with tanggal parameter
-        await submitJournal(null, kegiatan, studentIds, keterangan, tanggal);
+        const submittedData = await submitJournal(null, kegiatan, studentIds, keterangan, tanggal, izinLanjutan);
+
+        // Handle upload foto jika ada file dikirim dan keterangan = izin
+        if (keterangan === 'izin' && req.file && submittedData && submittedData[0]) {
+            const newJurnalId = submittedData[0].id_jurnal;
+            addLog('FETCH', `Mengupload foto surat izin ke storage (${req.file.originalname})...`);
+            try {
+                const { fotoPath } = await uploadFotoIzin(
+                    newJurnalId,
+                    sessionDefaults.id_siswa,
+                    req.file.buffer,
+                    req.file.originalname,
+                    req.file.mimetype
+                );
+                addLog('SUCCESS', `Foto izin berhasil diupload: ${fotoPath}`);
+            } catch (uploadErr) {
+                // Jurnal sudah tersimpan, hanya foto yang gagal
+                addLog('WARN', `Jurnal tersimpan tapi foto gagal diupload: ${uploadErr.message}`);
+            }
+        } else if (keterangan === 'izin' && !req.file && !izinLanjutan) {
+            addLog('INFO', 'Izin disimpan tanpa foto (tidak ada file yang diupload).');
+        }
 
         addLog('SUCCESS', 'Journal submitted successfully!');
         res.render('index', {

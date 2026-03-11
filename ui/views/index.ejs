@@ -129,7 +129,7 @@
                                             <div
                                                 class="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-100">
                                                 <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                                                    Data Formulir</h3>
+                                                    アカウント</h3>
                                             </div>
                                             <div class="divide-y divide-gray-100">
                                                 <!-- Item: Nama -->
@@ -188,7 +188,7 @@
                                         </div>
 
                                         <!-- Input Form -->
-                                        <form action="/submit" method="POST" class="space-y-6">
+                                        <form action="/submit" method="POST" enctype="multipart/form-data" class="space-y-6">
 
                                             <!-- Tanggal Input -->
                                             <div>
@@ -226,9 +226,37 @@
                                                 </div>
                                             </div>
 
+                                            <!-- Foto Izin (muncul hanya saat keterangan = izin) -->
+                                            <div id="foto-izin-section" class="hidden space-y-3">
+                                                <!-- Info izin lanjutan (muncul jika kemarin izin) -->
+                                                <div id="izin-lanjutan-info" class="hidden">
+                                                    <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start">
+                                                        <svg class="w-4 h-4 text-blue-500 mt-0.5 shrink-0 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                        </svg>
+                                                        <p class="text-xs text-blue-700">
+                                                            <span class="font-semibold">Izin Lanjutan aktif</span> — kemarin kamu juga izin.<br>
+                                                            <span id="foto-kemarin-status" class="block mt-0.5 text-blue-600"></span>
+                                                            Fitur ini muncul karena jurnal kemarin (H-1) tercatat sebagai izin. Supaya tidak perlu upload surat yang sama berkali-kali saat izin beberapa hari berturut-turut, foto dari hari sebelumnya akan otomatis dipakai ulang — jadi kamu cukup upload sekali saja. Kalau mau ganti dengan foto baru, upload file pada kolom di bawah ini.
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Upload foto baru -->
+                                                <div>
+                                                    <label for="foto_izin" class="block text-sm font-medium text-gray-700 mb-2 ml-1">
+                                                        Surat Izin <span class="text-gray-400 font-normal">(Opsional)</span>
+                                                    </label>
+                                                    <input type="file" id="foto_izin" name="foto_izin"
+                                                        accept="image/jpeg,image/png,image/jpg,image/webp"
+                                                        class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all duration-200 bg-gray-50 focus:bg-white text-sm shadow-sm text-gray-700 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                                    <p class="mt-1 text-xs text-gray-400 ml-1">JPG, PNG, atau WebP. Max 5MB.</p>
+                                                </div>
+                                            </div>
+
                                             <button type="submit"
                                                 class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-indigo-200 hover:shadow-2xl hover:shadow-indigo-300 hover:-translate-y-1 transition-all duration-300 flex items-center justify-center">
-                                                <span class="tracking-wide">KIRIM LAPORAN</span>
+                                                <span class="tracking-wide">ABSEN</span>
                                             </button>
                                         </form>
 
@@ -486,6 +514,55 @@
 
         // Make function globally accessible
         window.deleteJournalEntry = deleteJournalEntry;
+
+        // --- Logika Foto Izin & Izin Lanjutan ---
+        const keteranganSelect = document.getElementById('keterangan');
+        const fotoIzinSection = document.getElementById('foto-izin-section');
+        const izinLanjutanInfo = document.getElementById('izin-lanjutan-info');
+        const fotoKemarinStatus = document.getElementById('foto-kemarin-status');
+        const tanggalInputEl = document.getElementById('tanggal');
+
+        // Show/hide foto section berdasarkan keterangan
+        function updateFotoSection() {
+            if (keteranganSelect.value === 'izin') {
+                fotoIzinSection.classList.remove('hidden');
+                // Cek izin lanjutan untuk tanggal yang dipilih
+                checkIzinLanjutan(tanggalInputEl.value);
+            } else {
+                fotoIzinSection.classList.add('hidden');
+                izinLanjutanInfo.classList.add('hidden');
+            }
+        }
+
+        // Cek ke server apakah kemarin izin (meniru logic platform asli)
+        async function checkIzinLanjutan(tanggal) {
+            if (!tanggal) return;
+            try {
+                const res = await fetch(`/api/check-kemarin-izin?tanggal=${tanggal}`);
+                const data = await res.json();
+                if (data.izin_lanjutan_tersedia) {
+                    izinLanjutanInfo.classList.remove('hidden');
+                    fotoKemarinStatus.textContent = data.foto_kemarin_ada
+                        ? `Foto dari ${data.tanggal_dicek} ditemukan ✓`
+                        : `Kemarin izin tapi belum ada foto — bisa upload baru di bawah.`;
+                } else {
+                    izinLanjutanInfo.classList.add('hidden');
+                }
+            } catch (e) {
+                izinLanjutanInfo.classList.add('hidden');
+            }
+        }
+
+        keteranganSelect.addEventListener('change', updateFotoSection);
+        tanggalInputEl.addEventListener('change', () => {
+            if (keteranganSelect.value === 'izin') {
+                checkIzinLanjutan(tanggalInputEl.value);
+            }
+        });
+
+        // Jalankan sekali saat load (jika nilai default sudah izin)
+        updateFotoSection();
+        // --- End Logika Foto Izin ---
     </script>
 </body>
 
