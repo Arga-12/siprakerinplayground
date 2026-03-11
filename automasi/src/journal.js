@@ -2,6 +2,109 @@
 const { supabase } = require('./auth');
 const config = require('./config');
 
+/**
+ * Mengembalikan tanggal kemarin (H-1) dalam format YYYY-MM-DD.
+ * @param {string} tanggal - Tanggal referensi YYYY-MM-DD (default: hari ini)
+ * @returns {string}
+ */
+function getYesterdayDate(tanggal = null) {
+    const ref = tanggal ? new Date(tanggal) : new Date();
+    ref.setDate(ref.getDate() - 1);
+    return ref.toISOString().split('T')[0];
+}
+
+/**
+ * Cek apakah keterangan jurnal siswa pada KEMARIN (H-1) adalah 'izin'.
+ * Ini meniru logika platform asli siprakerin.com:
+ *   GET /daftar_jurnal?select=keterangan&id_siswa=eq.{id}&tanggal=eq.{kemarin}
+ * Jika hasilnya 'izin' → platform menampilkan toggle "Izin Lanjutan".
+ *
+ * @param {string} id_siswa
+ * @param {string} tanggal - Tanggal hari ini (YYYY-MM-DD)
+ * @returns {boolean} true jika kemarin izin
+ */
+async function checkKemarinIzin(id_siswa, tanggal) {
+    const kemarin = getYesterdayDate(tanggal);
+    console.log(`[izin lanjutan] Mengecek keterangan kemarin (${kemarin}) untuk siswa ${id_siswa}...`);
+
+    const { data, error } = await supabase
+        .from('daftar_jurnal')
+        .select('keterangan')
+        .eq('id_siswa', id_siswa)
+        .eq('tanggal', kemarin)
+        .maybeSingle();
+
+    if (error) {
+        console.warn('[izin lanjutan] Gagal cek kemarin:', error.message);
+        return false;
+    }
+
+    const isKemarinIzin = data?.keterangan === 'izin';
+    console.log(`[izin lanjutan] Status kemarin (${kemarin}): "${data?.keterangan ?? 'tidak ada'}" → izin lanjutan ${isKemarinIzin ? 'TERSEDIA' : 'tidak tersedia'}`);
+    return isKemarinIzin;
+}
+
+/**
+ * Fetch UID foto dari entry izin terakhir SEBELUM tanggal yang diberikan.
+ * Token diambil otomatis dari sesi Supabase yang aktif (hasil login).
+ *
+ * @param {string} id_siswa
+ * @param {string} tanggal - Tanggal hari ini (YYYY-MM-DD); fetch mencari entry < tanggal ini
+ * @returns {string|null} - Path foto (contoh: "<uuid>/nama_file.png") atau null jika tidak ada
+ */
+async function getLastIzinFoto(id_siswa, tanggal) {
+    console.log(`[izin lanjutan] Mencari foto izin sebelum tanggal ${tanggal} untuk siswa ${id_siswa}...`);
+
+    // Ambil token dari sesi Supabase yang sudah login — tidak perlu inject manual
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+        console.warn('[izin lanjutan] Tidak ada sesi aktif — tidak bisa fetch foto kemarin.');
+        return null;
+    }
+
+    const baseUrl = `${config.SUPABASE_URL}/rest/v1`;
+    // Filter: keterangan=izin, foto tidak null, foto tidak kosong, tanggal < hari ini, urut desc, ambil 1
+    const query = [
+        `select=foto`,
+        `id_siswa=eq.${id_siswa}`,
+        `keterangan=eq.izin`,
+        `foto=not.is.null`,
+        `foto=neq.`,
+        `tanggal=lt.${tanggal}`,
+        `order=tanggal.desc`,
+        `limit=1`
+    ].join('&');
+
+    const url = `${baseUrl}/daftar_jurnal?${query}`;
+
+    const res = await fetch(url, {
+        headers: {
+            'apikey': config.SUPABASE_KEY,
+            'Authorization': `Bearer ${token}`,
+            'accept': '*/*',
+            'accept-profile': 'public'
+        }
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        console.warn(`[izin lanjutan] Gagal fetch foto kemarin: ${res.status} - ${text}`);
+        return null;
+    }
+
+    const data = await res.json();
+
+    if (!data || data.length === 0 || !data[0].foto) {
+        console.log('[izin lanjutan] Tidak ada foto izin sebelumnya ditemukan.');
+        return null;
+    }
+
+    console.log(`[izin lanjutan] Foto kemarin ditemukan: ${data[0].foto}`);
+    return data[0].foto;
+}
+
 async function getStudentDetails(user) {
     // 1. Prefer Environment Variables (Overrides)
     if (config.ID_SISWA && config.ID_KELAS && config.ID_INDUSTRI) {
@@ -69,7 +172,18 @@ async function getStudentDetails(user) {
 
 
 
-async function submitJournal(token, activity, studentIds, keterangan = 'hadir', tanggal = null) {
+/**
+ * Submit jurnal harian.
+ *
+ * @param {string|null} token        - Bearer token (diperlukan untuk izin lanjutan)
+ * @param {string}      activity     - Kegiatan
+ * @param {object}      studentIds   - { id_siswa, id_kelas, id_industri }
+ * @param {string}      keterangan   - 'hadir' | 'izin' | dst. (default: 'hadir')
+ * @param {string|null} tanggal      - YYYY-MM-DD (default: hari ini)
+ * @param {boolean}     izinLanjutan - Jika true & keterangan='izin': gunakan foto izin dari hari kemarin.
+ *                                     Default FALSE — user harus upload foto baru.
+ */
+async function submitJournal(token, activity, studentIds, keterangan = 'hadir', tanggal = null, izinLanjutan = false) {
     // Use provided tanggal or default to today
     const journalDate = tanggal || new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
@@ -137,7 +251,42 @@ async function submitJournal(token, activity, studentIds, keterangan = 'hadir', 
     }
 
     console.log('Absen siswa berhasil dikirim:', data);
-    return data;hadir
+
+    // --- Logika Izin Lanjutan ---
+    // Hanya dijalankan jika: keterangan='izin', izinLanjutan=true, token tersedia, dan insert berhasil
+    if (keterangan === 'izin' && izinLanjutan && data && data[0]) {
+        const newJurnalId = data[0].id_jurnal;
+        console.log(`[izin lanjutan] Mode aktif. Mencari foto izin sebelumnya untuk dijadikan foto jurnal #${newJurnalId}...`);
+
+        try {
+            const fotoKemarin = await getLastIzinFoto(studentIds.id_siswa, journalDate);
+
+            if (fotoKemarin) {
+                // PATCH foto kemarin ke jurnal baru — menghemat storage (tidak upload ulang)
+                const { error: patchError } = await supabase
+                    .from('daftar_jurnal')
+                    .update({ foto: fotoKemarin })
+                    .eq('id_jurnal', newJurnalId);
+
+                if (patchError) {
+                    console.warn(`[izin lanjutan] Gagal patch foto ke jurnal baru: ${patchError.message}`);
+                } else {
+                    console.log(`[izin lanjutan] Foto "${fotoKemarin}" berhasil di-reuse untuk jurnal #${newJurnalId}.`);
+                    data[0].foto = fotoKemarin; // Update return value agar konsisten
+                }
+            } else {
+                console.log('[izin lanjutan] Tidak ada foto sebelumnya — jurnal dibuat tanpa foto (user perlu upload manual).');
+            }
+        } catch (izinErr) {
+            // Jangan gagalkan submit utama hanya karena izin lanjutan gagal
+            console.warn('[izin lanjutan] Error saat proses izin lanjutan (jurnal tetap tersimpan):', izinErr.message);
+        }
+    } else if (keterangan === 'izin' && !izinLanjutan) {
+        console.log('[izin] Mode default: bukan izin lanjutan. User perlu upload foto baru secara manual.');
+    }
+    // --- End Logika Izin Lanjutan ---
+
+    return data;
 }
 
 // Updated with Pagination Support
@@ -228,8 +377,63 @@ async function updateJournal(id_jurnal, updates) {
     return data;
 }
 
+/**
+ * Upload foto surat izin ke Supabase Storage (bucket: 'izin') lalu PATCH jurnal.
+ * Meniru persis flow platform asli siprakerin.com:
+ *   1. PUT /storage/v1/object/izin/{id_siswa}/{timestamp}_{filename}
+ *   2. PATCH daftar_jurnal set foto = "{id_siswa}/{timestamp}_{filename}"
+ *
+ * @param {string}  id_jurnal  - ID jurnal yang sudah dibuat
+ * @param {string}  id_siswa   - UUID siswa (jadi prefix path di storage)
+ * @param {Buffer}  fileBuffer - Buffer isi file
+ * @param {string}  fileName   - Nama file asli (e.g. "surat_izin.png")
+ * @param {string}  mimeType   - MIME type (e.g. "image/png")
+ * @returns {{ fotoPath: string }} path foto yang tersimpan
+ */
+async function uploadFotoIzin(id_jurnal, id_siswa, fileBuffer, fileName, mimeType) {
+    // Format path: {id_siswa}/{timestamp_ms}_{nama_file}  ← persis seperti platform asli
+    const timestamp = Date.now();
+    const fotoPath = `${id_siswa}/${timestamp}_${fileName}`;
+
+    console.log(`[upload foto] Mengupload ke bucket 'izin': ${fotoPath}`);
+
+    // 1. Upload ke Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('izin')
+        .upload(fotoPath, fileBuffer, {
+            contentType: mimeType,
+            upsert: false
+        });
+
+    if (uploadError) {
+        console.error('[upload foto] Gagal upload ke storage:', uploadError.message);
+        throw new Error(`Gagal upload foto: ${uploadError.message}`);
+    }
+
+    console.log(`[upload foto] Upload berhasil: ${uploadData.path}`);
+
+    // 2. PATCH foto path ke jurnal (sama seperti platform: body = { foto: path })
+    const { error: patchError } = await supabase
+        .from('daftar_jurnal')
+        .update({ foto: fotoPath })
+        .eq('id_jurnal', id_jurnal);
+
+    if (patchError) {
+        console.error('[upload foto] Gagal patch foto ke jurnal:', patchError.message);
+        throw new Error(`Foto terupload tapi gagal disimpan ke jurnal: ${patchError.message}`);
+    }
+
+    console.log(`[upload foto] Foto berhasil dikaitkan ke jurnal #${id_jurnal}: ${fotoPath}`);
+    return { fotoPath };
+}
+
 module.exports = {
     getStudentDetails,
+    getYesterdayDate,
+    checkKemarinIzin,
+    getLastIzinFoto,
+    uploadFotoIzin,
     submitJournal,
     getJournalHistory,
     deleteJournal,

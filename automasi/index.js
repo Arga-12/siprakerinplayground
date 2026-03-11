@@ -1,7 +1,7 @@
 
 const cron = require('node-cron');
 const { login } = require('./src/auth');
-const { getStudentDetails, submitJournal } = require('./src/journal');
+const { getStudentDetails, submitJournal, checkKemarinIzin } = require('./src/journal');
 const { getRandomActivity, getRandomDelay } = require('./src/utils');
 
 async function runTask() {
@@ -25,8 +25,24 @@ async function runTask() {
         // 4. Generate Activity
         const activity = getRandomActivity();
 
-        // 5. Submit
-        await submitJournal(null, activity, studentIds);
+        // 5. Auto-detect izin lanjutan (meniru logika platform asli siprakerin.com)
+        //    Platform cek: apakah jurnal kemarin berketerangan 'izin'?
+        //    Jika iya → toggle izin lanjutan tersedia (di sini kita set otomatis = true)
+        //    Jika tidak → submit biasa tanpa izin lanjutan
+        //
+        //    CATATAN: Keterangan jurnal hari ini ditentukan di bawah.
+        //    Ganti 'hadir' dengan 'izin' jika ingin submit izin, dan set izinLanjutan sesuai.
+        const keterangan = 'hadir'; // Ganti ke 'izin' jika mau izin
+
+        let izinLanjutan = false;
+        if (keterangan === 'izin') {
+            const today = new Date().toISOString().split('T')[0];
+            izinLanjutan = await checkKemarinIzin(studentIds.id_siswa, today);
+            console.log(`[izin] Auto-detect izin lanjutan: ${izinLanjutan ? 'AKTIF (kemarin izin)' : 'nonaktif (kemarin bukan izin)'}`);
+        }
+
+        // 6. Submit
+        await submitJournal(null, activity, studentIds, keterangan, null, izinLanjutan);
 
     } catch (error) {
         console.error('Task failed:', error);

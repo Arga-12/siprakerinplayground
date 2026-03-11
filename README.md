@@ -6,7 +6,10 @@ Ini adalah project gabut yang aku buat untuk membantu ku bermain-main supabase m
 - Mengirim (memfetching) data kehadiran dengan keterangan `hadir` `izin` dan `libur`, serta bisa memilih tanggal kehadiran yang ingin dipilih.
 - Automasi hadir sekali setiap booting laptop atau pc akan diterapkan terlebih dahulu menggunakan `linux` (karena punya setting untuk menjalankan command setiap booting) _cooming soon~_
 
-> Notes: untuk keterangan `izin`, foto surat berubah menjadi template yang diberikan oleh siprakerin. Ubah foto surat izin template dengan surat izin yang asli (kalau bisa, entah kenapa logic kalau foto template menjadi **read-only**)
+> **Notes — Fitur Izin & Izin Lanjutan:**
+> Untuk keterangan `izin`, playground sekarang mendukung upload foto surat izin langsung ke Supabase Storage (bucket `izin`) — persis seperti yang dilakukan platform siprakerin.com.
+>
+> Ada juga fitur **Izin Lanjutan** yang meniru logika platform asli: saat kamu submit izin, sistem otomatis cek apakah jurnal kemarin (H-1) juga berketerangan `izin`. Kalau iya, foto surat dari hari sebelumnya akan dipakai ulang secara otomatis — jadi tidak perlu upload surat yang sama berkali-kali saat izin beberapa hari berturut-turut. Kalau mau ganti dengan foto baru, tetap bisa upload file melalui kolom yang tersedia di form.
 
 Logic yang kuberikan hanya mengbypass peraturan tidak bisa memilih tanggal kehadiran saja, serta mengeset nilai dari keterangan dan kegiatan:
 
