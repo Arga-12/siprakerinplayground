@@ -1,5 +1,6 @@
 # Environment variables - NEVER COMMIT!
 .env
+.secret
 .env.local
 .env.*.local
 *.env
@@ -38,3 +39,6 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+
+.opencode
+sesi

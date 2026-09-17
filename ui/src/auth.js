@@ -1,4 +1,3 @@
-
 const { createClient } = require('@supabase/supabase-js');
 const config = require('./config');
 
@@ -11,17 +10,14 @@ async function login() {
             password: config.USER_PASSWORD,
         });
 
-        if (error) {
-            throw error;
-        }
+        if (error) throw error;
 
-        // Return both token and user object (which contains the UUID)
         return {
             token: data.session.access_token,
             user: data.user
         };
     } catch (error) {
-        console.error('Login gagal:', error.message);
+        console.error('Login failed:', error.message);
         throw error;
     }
 }

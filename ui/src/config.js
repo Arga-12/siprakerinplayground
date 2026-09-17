@@ -1,8 +1,9 @@
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load env from root
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const requiredEnv = [
@@ -22,7 +23,6 @@ requiredEnv.forEach((key) => {
     config[key] = process.env[key];
 });
 
-// Optional overrides
 config.ID_SISWA = process.env.ID_SISWA;
 config.ID_KELAS = process.env.ID_KELAS;
 config.ID_INDUSTRI = process.env.ID_INDUSTRI;

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siprakerin Playground</title>
+    <title>Siprakerin Journal Manager</title>
     <link href="/output.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap');
@@ -17,343 +17,428 @@
             font-family: 'Fira Code', monospace;
         }
 
-        /* Custom Scrollbar for Logs */
         #log-container::-webkit-scrollbar {
             width: 6px;
         }
 
         #log-container::-webkit-scrollbar-track {
-            background: #1f2937;
+            background: #111827;
         }
 
         #log-container::-webkit-scrollbar-thumb {
-            background: #4b5563;
+            background: #374151;
             border-radius: 3px;
         }
 
         #log-container::-webkit-scrollbar-thumb:hover {
-            background: #6b7280;
+            background: #4b5563;
+        }
+
+        /* Snackbar */
+        #snackbar-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+        }
+
+        .snackbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: white;
+            box-shadow: 0 4px 16px rgba(17, 24, 39, 0.12);
+            transform: translateX(120%);
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .day-hadir { background: #ECFDF5; color: #047857; font-weight: 600; }
+        .day-izin { background: #EFF6FF; color: #1D4ED8; font-weight: 600; }
+        .day-alfa { background: #FEF2F2; color: #B91C1C; font-weight: 600; }
+        .day-libur { background: #FFFBEB; color: #B45309; font-weight: 600; }
+        .day-libur-nasional { background: #F5F3FF; color: #6D28D9; font-weight: 600; }
+
+        .snackbar.show {
+            transform: translateX(0);
+        }
+
+        .snackbar.success {
+            background: #0F828C;
+        }
+
+        .snackbar.error {
+            background: #DC2626;
+        }
+
+        .snackbar.info {
+            background: #4B5563;
+        }
+
+        /* Sidebar nav active/inactive states */
+        .tab-btn {
+            color: #6B7280;
+        }
+
+        .tab-btn:hover {
+            background: #F3F4F6;
+        }
+
+        .tab-btn.active {
+            background: rgba(15, 130, 140, 0.08);
+            color: #0F828C;
+            font-weight: 600;
         }
     </style>
 </head>
 
-<body class="bg-gray-100 h-screen overflow-hidden flex items-center justify-center p-6 md:p-12 relative">
+<body class="bg-white text-gray-900 min-h-screen">
 
-    <!-- Background Decoration -->
-    <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-200 rounded-full blur-[100px] opacity-40">
-        </div>
-        <div
-            class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-200 rounded-full blur-[100px] opacity-40">
-        </div>
-    </div>
+    <div class="flex flex-col lg:flex-row lg:min-h-screen">
 
+        <!-- Sidebar -->
+        <aside class="lg:w-64 shrink-0 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+            <div class="p-5 lg:p-6 flex flex-col lg:h-full">
 
-    <!-- Main Container (Floating) -->
-    <div class="relative z-10 w-full h-full flex gap-6">
-
-        <!-- Left: Floating Log Card -->
-        <aside
-            class="w-1/3 bg-gray-900 text-green-400 rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 backdrop-blur-sm bg-opacity-95">
-            <div class="p-6 border-b border-gray-800 bg-gray-900/50 flex items-center justify-between">
-                <div>
-                    <h3 class="text-sm font-bold tracking-widest text-gray-500">System Logs</h3>
-                    <div class="text-[10px] text-gray-600 font-mono mt-1">Live fetch & status</div>
+                <!-- Brand -->
+                <div class="h-20 w-full mb-6 lg:mb-8 relative overflow-hidden rounded-2xl">
+                    <img
+                        src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdW1pZ3Bxa3ZkZWFlNGJrMG1idWhncjg2MHd0N2ZubTZ3cXdibHAxdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/m8D912816CyyrJNB1L/giphy.gif"
+                        alt="fill"
+                        class="absolute inset-0 w-full h-full object-cover"
+                    />
                 </div>
-                <div class="flex space-x-1.5">
-                    <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
-                    <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                    <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
-                </div>
-            </div>
+                <div class="border-t border-gray-200"></div>
 
-            <div class="flex-1 overflow-y-auto p-6 font-mono text-xs space-y-3" id="log-container">
-                <% logs.forEach(log=> { %>
-                    <div class="opacity-80 hover:opacity-100 transition-opacity flex items-start">
-                        <span class="text-gray-600 mr-2 shrink-0">[<%= log.time %>]</span>
-                        <span
-                            class="<%= log.type === 'INFO' ? 'text-blue-400' : (log.type === 'FETCH' ? 'text-purple-400' : (log.type === 'AUTH' ? 'text-yellow-500' : 'text-green-400')) %> font-bold mr-2 shrink-0">
-                            <%= log.type %>
-                        </span>
-                        <span class="text-gray-300 break-words">
-                            <%= log.message %>
-                        </span>
+                <!-- Account -->
+                <div class="mt-6 lg:mt-8 mb-6 lg:mb-8">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate"><%= defaults.nama || 'Loading...' %></p>
+                            <p class="text-xs text-gray-400 truncate">NIS <%= defaults.nis || '-' %></p>
+                        </div>
                     </div>
-                    <% }) %>
-                        <div class="animate-pulse text-green-500">_</div>
-            </div>
+                    <dl class="space-y-1.5 text-xs pl-0.5">
+                        <div class="flex justify-between gap-2 border-t border-gray-200 pt-1.5">
+                            <dt class="text-gray-400">Job</dt>
+                            <dd class="text-gray-700 text-right truncate"><%= defaults.keahlian || '-' %></dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-t border-gray-200 pt-1.5">
+                            <dt class="text-gray-400">Class</dt>
+                            <dd class="text-gray-700 text-right truncate"><%= defaults.nama_kelas || '-' %></dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-t border-gray-200 pt-1.5">
+                            <dt class="text-gray-400">Slave of</dt>
+                            <dd class="text-gray-700 text-right truncate"><%= defaults.nama_industri || '-' %></dd>
+                        </div>
+                    </dl>
+                </div>
 
-            <div class="p-4 bg-gray-900/50 border-t border-gray-800 text-[10px] text-gray-600 font-mono text-center">
-                env: Siprakerin SMKN 4 MALANG | 4rgandull-experiments
+                <!-- Nav / Tabs -->
+                <nav class="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible -mx-1 px-1 lg:mx-0 lg:px-0">
+                    <button type="button" onclick="switchTab('entry')" data-tab="entry"
+                        class="tab-btn active shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Absent
+                    </button>
+                    <button type="button" onclick="switchTab('history')" data-tab="history"
+                        class="tab-btn shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        History
+                    </button>
+                    <button type="button" onclick="switchTab('logs')" data-tab="logs"
+                        class="tab-btn shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        System Logs
+                    </button>
+                </nav>
+
+                <div class="hidden lg:block mt-auto pt-6">
+                    <p class="text-[10px] text-gray-400 leading-relaxed">© 2026 <strong>4rgandull</strong><br>In the search of studying i find slavery</p>
+                </div>
             </div>
         </aside>
 
+        <!-- Main content -->
+        <main class="flex-1 min-w-0 p-5 sm:p-8 lg:p-10 flex flex-col">
 
-        <!-- Right: Floating Main Content -->
-        <main class="flex-1 flex flex-col shadow-3xl overflow-hidden relative">
+            <!-- === Tab: New Entry === -->
+            <section id="tab-entry" class="tab-panel max-w-5xl w-full mx-auto my-auto">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
 
-            <!-- Main Card -->
-            <div
-                class="flex-1 bg-white/90 rounded-3xl border border-white/20 flex flex-col overflow-hidden relative">
+                    <div class="flex-1 min-w-0 w-full">
+                        <h1 class="text-lg font-semibold text-gray-900 mb-1">Fill ur absent</h1>
+                        <p class="text-sm text-gray-400 mb-6">Fill in today's slavery activity below.</p>
 
-                <!-- Title Header -->
-                <div class="px-8 p-6 border-b border-gray-100 flex items-center justify-center">
-                    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
-                        Fetching Siprakerin's Supabase Playground
-                    </h1>
-                </div>
+                        <form action="/" method="POST" enctype="multipart/form-data" class="space-y-5">
 
-                <!-- Student Info & Content -->
-                <div class="flex-1 overflow-y-auto p-8 pt-6">
-                    <div class="max-w mx-auto space-y-8">
-
-                        <!-- Feedback Messages -->
-                        <% if (message) { %>
-                            <div class="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm">
-                                <p class="text-sm text-green-700 font-medium">
-                                    <%= message %>
-                                </p>
+                            <div>
+                                <label for="tanggal" class="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
+                                <input type="date" id="tanggal" name="tanggal" required
+                                    class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-gray-800 focus:border-[#0F828C] focus:ring-2 focus:ring-[#78B9B5]/30 focus:outline-none transition-colors">
                             </div>
-                            <% } %>
-                                <% if (error) { %>
-                                    <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
-                                        <p class="text-sm text-red-700 font-medium">
-                                            <%= error %>
-                                        </p>
-                                    </div>
-                                    <% } %>
 
-                                        <!-- Vertical Data List (Data Formulir) -->
-                                        <div
-                                            class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                                            <div
-                                                class="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-100">
-                                                <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                                                    アカウント</h3>
-                                            </div>
-                                            <div class="divide-y divide-gray-100">
-                                                <!-- Item: Nama -->
-                                                <div
-                                                    class="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors">
-                                                    <span
-                                                        class="w-32 text-xs font-semibold text-gray-400 uppercase">Nama
-                                                        Lengkap</span>
-                                                    <span class="flex-1 text-sm font-medium text-gray-900">
-                                                        <%= defaults.nama || '-' %>
-                                                    </span>
-                                                </div>
-                                                <!-- Item: NIS -->
-                                                <div
-                                                    class="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors">
-                                                    <span
-                                                        class="w-32 text-xs font-semibold text-gray-400 uppercase">NIS</span>
-                                                    <span class="flex-1 text-sm font-medium text-gray-900">
-                                                        <%= defaults.nis || '-' %>
-                                                    </span>
-                                                </div>
-                                                <!-- Item: Keahlian -->
-                                                <div
-                                                    class="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors">
-                                                    <span
-                                                        class="w-32 text-xs font-semibold text-gray-400 uppercase">Keahlian</span>
-                                                    <span class="flex-1 text-sm font-medium text-gray-900">
-                                                        <%= defaults.keahlian || '-' %>
-                                                    </span>
-                                                </div>
-                                                <!-- Item: Kelas -->
-                                                <div
-                                                    class="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors">
-                                                    <span
-                                                        class="w-32 text-xs font-semibold text-gray-400 uppercase">Kelas</span>
-                                                    <span class="flex-1 text-sm font-medium text-gray-900">
-                                                        <%= defaults.nama_kelas || '-' %>
-                                                    </span>
-                                                </div>
-                                                <!-- Item: Industri -->
-                                                <div
-                                                    class="px-6 py-3 flex items-center hover:bg-gray-50 transition-colors">
-                                                    <span
-                                                        class="w-32 text-xs font-semibold text-gray-400 uppercase">Industri</span>
-                                                    <span class="flex-1 text-sm font-medium text-gray-900">
-                                                        <%= defaults.nama_industri || '-' %>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <% if (!defaults.nama) { %>
-                                                <div
-                                                    class="px-6 py-2 bg-yellow-50 text-[10px] text-yellow-600 text-center">
-                                                    Data sedang diambil dari database...
-                                                </div>
-                                                <% } %>
-                                        </div>
+                            <div>
+                                <label for="kegiatan" class="block text-sm font-medium text-gray-700 mb-1.5">Today's Activity</label>
+                                <textarea id="kegiatan" name="kegiatan" rows="4" required
+                                    class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white resize-none text-sm text-gray-800 placeholder-gray-400 focus:border-[#0F828C] focus:ring-2 focus:ring-[#78B9B5]/30 focus:outline-none transition-colors"
+                                    placeholder="Describe your prakerin activity today..."></textarea>
+                            </div>
 
-                                        <!-- Input Form -->
-                                        <form action="/submit" method="POST" enctype="multipart/form-data" class="space-y-6">
-
-                                            <!-- Tanggal Input -->
-                                            <div>
-                                                <label for="tanggal"
-                                                    class="block text-sm font-medium text-gray-700 mb-2 ml-1">Tanggal</label>
-                                                <input type="date" id="tanggal" name="tanggal" required
-                                                    class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all duration-200 bg-gray-50 focus:bg-white text-sm shadow-sm font-medium text-gray-700">
-                                            </div>
-
-                                            <div>
-                                                <label for="kegiatan"
-                                                    class="block text-sm font-medium text-gray-700 mb-2 ml-1">Kegiatan
-                                                    Hari
-                                                    Ini</label>
-                                                <textarea id="kegiatan" name="kegiatan" rows="3" required
-                                                    class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all duration-200 bg-gray-50 focus:bg-white resize-none text-sm placeholder-gray-400 shadow-sm"
-                                                    placeholder="Jelaskan aktivitas prakerin kamu hari ini..."></textarea>
-                                            </div>
-
-                                            <div>
-                                                <label for="keterangan"
-                                                    class="block text-sm font-medium text-gray-700 mb-2 ml-1">Status
-                                                    Kehadiran</label>
-                                                <div class="relative">
-                                                    <select id="keterangan" name="keterangan"
-                                                        class="w-full appearance-none px-4 py-3 rounded-2xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all duration-200 bg-gray-50 focus:bg-white cursor-pointer text-sm shadow-sm font-medium text-gray-700">
-                                                        <option value="hadir" selected>Hadir</option>
-                                                        <option value="libur">Libur</option>
-                                                        <option value="izin">Izin</option>
-                                                    </select>
-                                                    <div
-                                                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                                                        ▼
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Foto Izin (muncul hanya saat keterangan = izin) -->
-                                            <div id="foto-izin-section" class="hidden space-y-3">
-                                                <!-- Info izin lanjutan (muncul jika kemarin izin) -->
-                                                <div id="izin-lanjutan-info" class="hidden">
-                                                    <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-start">
-                                                        <svg class="w-4 h-4 text-blue-500 mt-0.5 shrink-0 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                                        </svg>
-                                                        <p class="text-xs text-blue-700">
-                                                            <span class="font-semibold">Izin Lanjutan aktif</span> — kemarin kamu juga izin.<br>
-                                                            <span id="foto-kemarin-status" class="block mt-0.5 text-blue-600"></span>
-                                                            Fitur ini muncul karena jurnal kemarin (H-1) tercatat sebagai izin. Supaya tidak perlu upload surat yang sama berkali-kali saat izin beberapa hari berturut-turut, foto dari hari sebelumnya akan otomatis dipakai ulang — jadi kamu cukup upload sekali saja. Kalau mau ganti dengan foto baru, upload file pada kolom di bawah ini.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <!-- Upload foto baru -->
-                                                <div>
-                                                    <label for="foto_izin" class="block text-sm font-medium text-gray-700 mb-2 ml-1">
-                                                        Surat Izin <span class="text-gray-400 font-normal">(Opsional)</span>
-                                                    </label>
-                                                    <input type="file" id="foto_izin" name="foto_izin"
-                                                        accept="image/jpeg,image/png,image/jpg,image/webp"
-                                                        class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all duration-200 bg-gray-50 focus:bg-white text-sm shadow-sm text-gray-700 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                                                    <p class="mt-1 text-xs text-gray-400 ml-1">JPG, PNG, atau WebP. Max 5MB.</p>
-                                                </div>
-                                            </div>
-
-                                            <button type="submit"
-                                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-indigo-200 hover:shadow-2xl hover:shadow-indigo-300 hover:-translate-y-1 transition-all duration-300 flex items-center justify-center">
-                                                <span class="tracking-wide">ABSEN</span>
-                                            </button>
-                                        </form>
-
-                                        <!-- Daftar Izin Section -->
-                                        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
-                                            id="izin-section">
-                                            <div
-                                                class="bg-gradient-to-r from-yellow-50 to-orange-50 px-6 py-4 border-b border-gray-100">
-                                                <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                                                    Daftar Izin Saya</h3>
-                                            </div>
-                                            <div class="p-6">
-                                                <div id="izin-container" class="space-y-3">
-                                                    <div class="text-center py-4 text-gray-400 text-sm">
-                                                        Memuat data izin...
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Daftar Jurnal Section -->
-                                        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
-                                            id="journal-section">
-                                            <div
-                                                class="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-100">
-                                                <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider">
-                                                    Riwayat Jurnal</h3>
-                                            </div>
-                                            <div class="overflow-x-auto">
-                                                <table class="w-full text-sm">
-                                                    <thead class="bg-gray-50 text-xs text-gray-500">
-                                                        <tr>
-                                                            <th class="px-4 py-3 text-left font-semibold">Tanggal</th>
-                                                            <th class="px-4 py-3 text-left font-semibold">Kegiatan</th>
-                                                            <th class="px-4 py-3 text-center font-semibold">Status</th>
-                                                            <th class="px-4 py-3 text-center font-semibold">Hapus</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody id="journal-tbody" class="divide-y divide-gray-100">
-                                                        <tr>
-                                                            <td colspan="3" class="px-4 py-6 text-center text-gray-400">
-                                                                Memuat data jurnal...
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-
-                                        <!-- Disclaimer & License Section -->
-                                        <div class="p-6 mt-6">
-                                            <div class="text-center mb-4">
-                                                <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">Disclaimer & License</h4>
-                                                <div class="h-0.5 w-20 bg-indigo-500 mx-auto"></div>
-                                            </div>
-                                            <div class="space-y-3 text-xs text-gray-600 leading-relaxed">
-                                                <p class="text-center">
-                                                    <strong class="text-gray-800">Experimental Project</strong> - This is a learning playground for exploring Supabase APIs and web automation <em> (not-yet tehe)</em>.
-                                                </p>
-                                                <p class="text-center">
-                                                    Built for educational purposes only. This project demonstrates data fetching, authentication, and CRUD operations with Supabase.
-                                                </p>
-                                                <div class="pt-3 border-t border-gray-200 text-center">
-                                                    <p class="font-medium text-gray-700">
-                                                        © 2026 <strong>4rgandull</strong> - All Rights Reserved
-                                                    </p>
-                                                    <p class="text-gray-500 mt-1">
-                                                        Licensed for personal and educational use only.
-                                                    </p>
-                                                </div>
-                                                <p class="text-center text-gray-500 italic pt-2">
-                                                    Reminder: Secure your Supabase API keys and review Row Level Security (RLS) policies. <3
-                                                </p>
-                                            </div>
-                                        </div>
+                            <div>
+                                <label for="keterangan" class="block text-sm font-medium text-gray-700 mb-1.5">Attendance Status</label>
+                                <div class="relative">
+                                    <select id="keterangan" name="keterangan"
+                                        class="w-full appearance-none px-3.5 py-2.5 pr-10 rounded-lg border border-gray-300 bg-white text-sm text-gray-800 cursor-pointer focus:border-[#0F828C] focus:ring-2 focus:ring-[#78B9B5]/30 focus:outline-none transition-colors">
+                                        <option value="hadir" selected>Present</option>
+                                        <option value="libur">Holiday</option>
+                                        <option value="izin">Permission</option>
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Foto Izin (muncul saat izin) -->
+                            <div id="foto-izin-section" class="hidden space-y-4">
+                                <div id="izin-lanjutan-info" class="hidden">
+                                    <div class="bg-[#F0F7F6] border border-[#78B9B5]/40 rounded-lg px-4 py-3 flex items-start">
+                                        <svg class="w-4 h-4 text-[#0F828C] mt-0.5 shrink-0 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        <p class="text-xs text-gray-600 leading-relaxed">
+                                            <span class="font-semibold text-[#0F828C]">Extended Permission active</span> — yesterday you also had permission.<br>
+                                            <span id="foto-kemarin-status" class="block mt-0.5 text-[#0F828C]"></span>
+                                            This appears because yesterday's (H-1) journal was recorded as permission. So you don't need to re-upload the same letter during consecutive permission days, the photo from the previous day is reused automatically. To replace it, upload a new file below.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label for="foto_izin" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                        Permission Letter <span class="text-gray-400 font-normal">(Optional)</span>
+                                    </label>
+                                    <input type="file" id="foto_izin" name="foto_izin"
+                                        accept="image/jpeg,image/png,image/jpg,image/webp"
+                                        class="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:border-[#0F828C] focus:ring-2 focus:ring-[#78B9B5]/30 focus:outline-none transition-colors file:mr-3 file:py-1.5 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#E7F4F2] file:text-[#0F828C] hover:file:bg-[#D8ECEA]">
+                                    <p class="mt-1.5 text-xs text-gray-400">JPG, PNG, or WebP. Max 5MB.</p>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 space-y-3">
+                                <button type="submit"
+                                    class="w-full bg-[#0F828C] hover:bg-[#0A6A72] text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center">
+                                    <span class="tracking-wide">SUBMIT</span>
+                                </button>
+
+                                <button type="button" id="btn-autofill" onclick="autoFillMissingJournals()"
+                                    class="w-full border border-[#0F828C]/40 text-[#0F828C] bg-white hover:bg-[#0F828C]/5 font-medium py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                    </svg>
+                                    Auto-Fill All Missing Absences
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <aside class="w-full shrink-0">
+                        <div class="border border-gray-200 rounded-xl p-4 sm:p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <button type="button" id="mini-calendar-prev" aria-label="Previous month"
+                                    class="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                </button>
+                                <span id="mini-calendar-label" class="text-sm font-semibold text-gray-900"></span>
+                                <button type="button" id="mini-calendar-next" aria-label="Next month"
+                                    class="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-7 gap-1 mb-1">
+                                <span class="text-center text-[10px] font-semibold text-gray-400">Min</span>
+                                <span class="text-center text-[10px] font-semibold text-gray-400">Sen</span>
+                                <span class="text-center text-[10px] font-semibold text-gray-400">Sel</span>
+                                <span class="text-center text-[10px] font-semibold text-gray-400">Rab</span>
+                                <span class="text-center text-[10px] font-semibold text-gray-400">Kam</span>
+                                <span class="text-center text-[10px] font-semibold text-gray-400">Jum</span>
+                                <span class="text-center text-[10px] font-semibold text-gray-400">Sab</span>
+                            </div>
+
+                            <div id="mini-calendar-grid" class="grid grid-cols-7 gap-1"></div>
+
+                            <div class="mt-4 pt-4 border-t border-gray-500 divide-y divide-gray-300">
+                                <div class="flex items-center gap-2 text-xs text-gray-600 py-1.5">
+                                    <span class="w-2.5 h-2.5 rounded bg-emerald-500 shrink-0"></span>Approaching
+                                    <span id="count-hadir" class="ml-auto font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-600 py-1.5">
+                                    <span class="w-2.5 h-2.5 rounded bg-sky-500 shrink-0"></span>got slimed
+                                    <span id="count-izin" class="ml-auto font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-600 py-1.5">
+                                    <span class="w-2.5 h-2.5 rounded bg-red-500 shrink-0"></span>Bro retired 🥀
+                                    <span id="count-alfa" class="ml-auto font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-600 py-1.5">
+                                    <span class="w-2.5 h-2.5 rounded bg-amber-500 shrink-0"></span>Holidayity 😪
+                                    <span id="count-libur" class="ml-auto font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-600 py-1.5">
+                                    <span class="w-2.5 h-2.5 rounded bg-violet-500 shrink-0"></span>Whole world at peace
+                                    <span id="count-libur-nasional" class="ml-auto font-semibold text-gray-900"></span>
+                                </div>
+                            </div>
                         </div>
+                    </aside>
+
+                </div>
+            </section>
+
+            <!-- === Tab: History === -->
+            <section id="tab-history" class="tab-panel hidden max-w-4xl w-full mx-auto my-auto">
+                <h1 class="text-lg font-semibold text-gray-900 mb-1">Journal History</h1>
+                <p class="text-sm text-gray-400 mb-6">All entries recorded so far.</p>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-xs text-gray-500 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-2.5 text-left font-semibold">Date</th>
+                                <th class="px-4 py-2.5 text-left font-semibold">Activity</th>
+                                <th class="px-4 py-2.5 text-center font-semibold">Status</th>
+                                <th class="px-4 py-2.5 text-center font-semibold">Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="journal-tbody" class="divide-y divide-gray-100 bg-white">
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-gray-400">
+                                    Loading journal data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div id="pagination-controls"
+                    class="mt-3 flex items-center justify-between gap-3"
+                    style="display:none;">
+                    <button id="prev-page-btn" onclick="changePage(-1)"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                        ← Previous
+                    </button>
+                    <span id="page-info" class="text-xs text-gray-500 font-medium"></span>
+                    <button id="next-page-btn" onclick="changePage(1)"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                        Next →
+                    </button>
+                </div>
+            </section>
+
+            <!-- === Tab: System Logs === -->
+            <section id="tab-logs" class="tab-panel hidden max-w-4xl w-full mx-auto my-auto">
+                <h1 class="text-lg font-semibold text-gray-900 mb-1">System Logs</h1>
+                <p class="text-sm text-gray-400 mb-6">Live server activity feed, updates every second.</p>
+
+                <div class="bg-gray-900 rounded-lg overflow-hidden">
+                    <div class="px-4 py-2 border-b border-gray-800 flex items-center justify-between">
+                        <span class="text-[11px] font-bold tracking-widest text-gray-500">SYSTEM LOGS</span>
+                        <span class="text-[10px] text-gray-600 font-mono">SMKN 4 MALANG | 4rgandull</span>
+                    </div>
+                    <div id="log-container"
+                        class="min-h-[24rem] lg:min-h-[32rem] overflow-y-auto px-4 py-4 font-mono text-xs">
+                        <% logs.forEach(log=> { %>
+                            <div class="mb-1">
+                                <span class="text-gray-600">[<%= log.time %>]</span><br>
+                                <span
+                                    class="<%= log.type === 'INFO' ? 'text-[#78B9B5]' : (log.type === 'FETCH' ? 'text-gray-400' : (log.type === 'AUTH' ? 'text-amber-300' : 'text-green-400')) %> font-bold">
+                                    <%= log.type %>
+                                </span><br>
+                                <span class="text-gray-300 break-words"><%= log.message %></span><br>
+                            </div>
+                            <% }) %>
+                                <div class="animate-pulse text-green-500">_</div>
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <!-- Footer (mobile only, desktop version is in sidebar) -->
+            <footer class="lg:hidden mt-10 pt-4 border-t border-gray-200">
+                <p class="text-[11px] text-gray-400">© 2026 <strong>4rgandull</strong> · Personal use only</p>
+            </footer>
         </main>
     </div>
 
-    <!-- prettier-ignore -->
+    <!-- Snackbar Container -->
+    <div id="snackbar-container"></div>
+
     <script>
+        // --- TAB SWITCHING ---
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('hidden', panel.id !== `tab-${tab}`);
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+        }
+        window.switchTab = switchTab;
+
         const logContainer = document.getElementById('log-container');
+
+        // --- SNACKBAR ---
+        function showSnackbar(message, type = 'info', duration = 3500) {
+            const container = document.getElementById('snackbar-container');
+            const el = document.createElement('div');
+            el.className = `snackbar ${type}`;
+            el.textContent = message;
+            container.appendChild(el);
+
+            requestAnimationFrame(() => el.classList.add('show'));
+
+            setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.remove(), 300);
+            }, duration);
+        }
+
+        <% if (message) { %>
+        showSnackbar('<%= message %>', 'success');
+        <% } %>
+        <% if (error) { %>
+        showSnackbar('<%= error %>', 'error');
+        <% } %>
 
         function getStatusColor(type) {
             switch (type) {
-                case 'INFO': return 'text-blue-400';
-                case 'FETCH': return 'text-purple-400';
-                case 'AUTH': return 'text-yellow-500';
-                case 'WARN': return 'text-yellow-400';
-                case 'ERROR': return 'text-red-500';
-                case 'FATAL': return 'text-red-600 bg-red-100 px-1';
+                case 'INFO': return 'text-[#78B9B5]';
+                case 'FETCH': return 'text-gray-400';
+                case 'AUTH': return 'text-amber-300';
+                case 'WARN': return 'text-amber-300';
+                case 'ERROR': return 'text-red-400';
+                case 'FATAL': return 'text-red-300 bg-red-500/15 px-1 rounded';
                 case 'SUCCESS': return 'text-green-400';
                 case 'READY': return 'text-green-300 font-bold';
                 default: return 'text-gray-400';
@@ -368,14 +453,14 @@
                 let html = '';
                 logs.forEach(log => {
                     html += `
-                        <div class="opacity-90 hover:opacity-100 transition-opacity flex items-start mb-2">
-                            <span class="text-gray-600 mr-2 shrink-0 text-[10px]">[${log.time}]</span> 
-                            <span class="${getStatusColor(log.type)} font-bold text-xs mr-2 shrink-0">${log.type}</span>
-                            <span class="text-gray-300 break-words text-xs leading-relaxed">${log.message}</span>
+                        <div class="mb-1">
+                            <span class="text-gray-600">[${log.time}]</span><br>
+                            <span class="${getStatusColor(log.type)} font-bold">${log.type}</span><br>
+                            <span class="text-gray-300 break-words leading-relaxed">${log.message}</span><br>
                         </div>
                     `;
                 });
-                html += '<div class="animate-pulse text-green-500 mt-2">_</div>';
+                html += '<div class="animate-pulse text-green-500">_</div>';
 
                 if (logContainer.innerHTML !== html) {
                     const shouldScroll = logContainer.scrollTop + logContainer.clientHeight >= logContainer.scrollHeight - 20;
@@ -392,105 +477,123 @@
         setInterval(fetchLogs, 1000);
         fetchLogs();
 
-        // Format date to Indonesian format (DD-MM-YYYY)
         function formatIndonesianDate(dateStr) {
             if (!dateStr) return '';
             const [year, month, day] = dateStr.split('-');
             return `${day}-${month}-${year}`;
         }
 
-        // Fetch and display journal data
+        // --- PAGINATION STATE ---
+        const ITEMS_PER_PAGE = 10;
+        let allJournals = [];
+        let currentPage = 1;
+
+        function renderJournalPage() {
+            const journalTbody = document.getElementById('journal-tbody');
+            const paginationControls = document.getElementById('pagination-controls');
+            const prevBtn = document.getElementById('prev-page-btn');
+            const nextBtn = document.getElementById('next-page-btn');
+            const pageInfo = document.getElementById('page-info');
+
+            if (!allJournals || allJournals.length === 0) {
+                journalTbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No journal data yet</td></tr>';
+                paginationControls.style.display = 'none';
+                return;
+            }
+
+            const totalPages = Math.ceil(allJournals.length / ITEMS_PER_PAGE);
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const pageJournals = allJournals.slice(startIndex, endIndex);
+
+            let journalHTML = '';
+            pageJournals.forEach(journal => {
+                const statusClass = {
+                    'hadir': 'bg-green-50 text-green-700',
+                    'izin': 'bg-gray-100 text-gray-600',
+                    'sakit': 'bg-gray-100 text-gray-600',
+                    'alpa': 'bg-red-50 text-red-600',
+                    'libur': 'bg-gray-100 text-gray-600'
+                }[journal.keterangan] || 'bg-gray-100 text-gray-600';
+
+                const statusLabel = {
+                    'hadir': 'Present',
+                    'izin': 'Permission',
+                    'sakit': 'Sick',
+                    'alpa': 'Absent',
+                    'libur': 'Holiday'
+                }[journal.keterangan] || journal.keterangan;
+
+                journalHTML += `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">${formatIndonesianDate(journal.tanggal)}</td>
+                        <td class="px-4 py-3 text-gray-700">
+                            <div class="max-w-xs truncate" title="${journal.kegiatan}">
+                                ${journal.kegiatan}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${statusClass}">
+                                ${statusLabel}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <button onclick="deleteJournalEntry(${journal.id})"
+                                class="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            journalTbody.innerHTML = journalHTML;
+
+            //tampilkan kontrol paginasi kalau lebih dari 1 halaman
+            if (totalPages > 1) {
+                paginationControls.style.display = 'flex';
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages} (${allJournals.length} journals)`;
+                prevBtn.disabled = currentPage <= 1;
+                nextBtn.disabled = currentPage >= totalPages;
+            } else {
+                paginationControls.style.display = 'none';
+            }
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            renderJournalPage();
+        }
+
         async function fetchJournalData() {
             try {
                 const response = await fetch('/api/journals');
                 const data = await response.json();
 
-                // Render Izin/Permissions
-                const izinContainer = document.getElementById('izin-container');
-                if (data.permissions && data.permissions.length > 0) {
-                    let izinHTML = '';
-                    data.permissions.forEach(izin => {
-                        izinHTML += `
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                                <div class="flex items-center mb-2">
-                                    <span class="ml-2 text-xs font-semibold text-gray-700">${formatIndonesianDate(izin.tanggal)}</span>
-                                </div>
-                                <div class="mt-3">
-                                    <p class="text-sm font-medium text-gray-900 mb-1">Alasan Izin:</p>
-                                    <p class="text-sm text-gray-700 leading-relaxed">${izin.alasan}</p>
-                                </div>
-                                <div class="mt-3 pt-3 border-t border-yellow-200">
-                                    <p class="text-xs text-gray-500">
-                                        <span class="font-medium">Dikirim:</span> ${new Date(izin.created_at).toLocaleString('id-ID')}
-                                    </p>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    izinContainer.innerHTML = izinHTML;
-                } else {
-                    izinContainer.innerHTML = '<div class="text-center py-6 text-gray-400 text-sm">Belum ada data izin</div>';
-                }
-
-                // Render Journals
-                const journalTbody = document.getElementById('journal-tbody');
-                if (data.journals && data.journals.length > 0) {
-                    let journalHTML = '';
-                    data.journals.forEach(journal => {
-                        const statusClass = {
-                            'hadir': 'bg-green-100 text-green-800',
-                            'izin': 'bg-yellow-100 text-yellow-800',
-                            'sakit': 'bg-red-100 text-red-800',
-                            'alpa': 'bg-gray-100 text-gray-800',
-                            'libur': 'bg-blue-100 text-blue-800'
-                        }[journal.keterangan] || 'bg-gray-100 text-gray-800';
-
-                        journalHTML += `
-                            <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">${formatIndonesianDate(journal.tanggal)}</td>
-                                <td class="px-4 py-3 text-gray-700">
-                                    <div class="max-w-xs truncate" title="${journal.kegiatan}">
-                                        ${journal.kegiatan}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
-                                        ${journal.keterangan.charAt(0).toUpperCase() + journal.keterangan.slice(1)}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <button onclick="deleteJournalEntry(${journal.id})" 
-                                        class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                        </svg>
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    journalTbody.innerHTML = journalHTML;
-                } else {
-                    journalTbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">Belum ada data jurnal</td></tr>';
-                }
+                //simpan semua jurnal, render halaman pertama
+                allJournals = data.journals || [];
+                currentPage = 1;
+                renderJournalPage();
             } catch (e) {
                 console.error("Failed to fetch journal data", e);
             }
         }
 
-        // Fetch journal data on page load
         fetchJournalData();
 
-        // Set today's date as default for tanggal input
+        //set tanggal default = hari ini
         const tanggalInput = document.getElementById('tanggal');
         if (tanggalInput && !tanggalInput.value) {
             const today = new Date().toISOString().split('T')[0];
             tanggalInput.value = today;
         }
 
-        // Delete Journal Entry
         async function deleteJournalEntry(id) {
-            if (!confirm('Apakah kamu yakin ingin menghapus jurnal ini?')) {
+            if (!confirm('Are you sure you want to delete this journal?')) {
                 return;
             }
 
@@ -502,31 +605,28 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('Berhasil menghapus jurnal');
-                    fetchJournalData(); // Refresh list
+                    showSnackbar('Journal deleted successfully', 'success');
+                    fetchJournalData();
                 } else {
-                    alert('Error: ' + result.error);
+                    showSnackbar('Error: ' + result.error, 'error');
                 }
             } catch (err) {
-                alert('Terjadi kesalahan: ' + err.message);
+                showSnackbar('An error occurred: ' + err.message, 'error');
             }
         }
 
-        // Make function globally accessible
         window.deleteJournalEntry = deleteJournalEntry;
 
-        // --- Logika Foto Izin & Izin Lanjutan ---
+        // --- Foto Izin & Izin Lanjutan ---
         const keteranganSelect = document.getElementById('keterangan');
         const fotoIzinSection = document.getElementById('foto-izin-section');
         const izinLanjutanInfo = document.getElementById('izin-lanjutan-info');
         const fotoKemarinStatus = document.getElementById('foto-kemarin-status');
         const tanggalInputEl = document.getElementById('tanggal');
 
-        // Show/hide foto section berdasarkan keterangan
         function updateFotoSection() {
             if (keteranganSelect.value === 'izin') {
                 fotoIzinSection.classList.remove('hidden');
-                // Cek izin lanjutan untuk tanggal yang dipilih
                 checkIzinLanjutan(tanggalInputEl.value);
             } else {
                 fotoIzinSection.classList.add('hidden');
@@ -534,7 +634,6 @@
             }
         }
 
-        // Cek ke server apakah kemarin izin (meniru logic platform asli)
         async function checkIzinLanjutan(tanggal) {
             if (!tanggal) return;
             try {
@@ -543,8 +642,8 @@
                 if (data.izin_lanjutan_tersedia) {
                     izinLanjutanInfo.classList.remove('hidden');
                     fotoKemarinStatus.textContent = data.foto_kemarin_ada
-                        ? `Foto dari ${data.tanggal_dicek} ditemukan ✓`
-                        : `Kemarin izin tapi belum ada foto — bisa upload baru di bawah.`;
+                        ? `Photo from ${data.tanggal_dicek} found ✓`
+                        : `Permission yesterday but no photo yet — upload a new one below.`;
                 } else {
                     izinLanjutanInfo.classList.add('hidden');
                 }
@@ -560,10 +659,182 @@
             }
         });
 
-        // Jalankan sekali saat load (jika nilai default sudah izin)
         updateFotoSection();
-        // --- End Logika Foto Izin ---
+    </script>
+
+    <script>
+    async function autoFillMissingJournals() {
+        const konfirmasi = confirm('This will fetch all missing (alpha) dates from the central server, then auto-fill each with "Present PKL" status. Continue?');
+
+        if (!konfirmasi) return;
+
+        const btn = document.getElementById('btn-autofill');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = 'Processing Auto-Fill... (Check server logs)';
+        btn.style.opacity = '0.7';
+
+        try {
+            const response = await fetch('/api/auto-fill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showSnackbar('Auto-fill done: ' + result.message, 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showSnackbar('Failed: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showSnackbar('Network or server error.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+            btn.style.opacity = '1';
+        }
+    }
+    </script>
+
+    <script>
+    (function () {
+        const calendarGrid = document.getElementById('mini-calendar-grid');
+        const calendarLabel = document.getElementById('mini-calendar-label');
+        const prevBtn = document.getElementById('mini-calendar-prev');
+        const nextBtn = document.getElementById('mini-calendar-next');
+
+        const MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+        const today = new Date();
+        let viewYear = today.getFullYear();
+        let viewMonth = today.getMonth(); // 0-11, otomatis ikut bulan berjalan
+        let selectedDate = null;
+
+        // data dari server: tanggal -> status ('hadir' | 'izin' | 'alfa' | 'libur' | 'libur-nasional')
+        let statusMap = {};
+        let liburNasionalMap = {};
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+
+        const STATUS_CLASS = {
+            'hadir': 'day-hadir',
+            'izin': 'day-izin',
+            'alfa': 'day-alfa',
+            'libur': 'day-libur',
+            'libur-nasional': 'day-libur-nasional'
+        };
+
+        const STATUS_LABEL = {
+            'hadir': 'Present',
+            'izin': 'Permission',
+            'alfa': 'Alpha',
+            'libur': 'Holiday',
+            'libur-nasional': 'National Holiday'
+        };
+
+        async function loadCalendarData() {
+            try {
+                const res = await fetch('/api/calendar');
+                const data = await res.json();
+                statusMap = data.statuses || {};
+                liburNasionalMap = data.liburNasionalMap || {};
+            } catch (err) {
+                console.error('Failed to fetch calendar data:', err);
+                statusMap = {};
+                liburNasionalMap = {};
+            }
+            renderCalendar();
+        }
+
+        function updateMonthCounts() {
+            const counts = { hadir: 0, izin: 0, alfa: 0, libur: 0, 'libur-nasional': 0 };
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`;
+                const status = statusMap[dateStr];
+                if (status && counts[status] !== undefined) counts[status]++;
+            }
+
+            document.getElementById('count-hadir').textContent = counts.hadir || '';
+            document.getElementById('count-izin').textContent = counts.izin || '';
+            document.getElementById('count-alfa').textContent = counts.alfa || '';
+            document.getElementById('count-libur').textContent = counts.libur || '';
+            document.getElementById('count-libur-nasional').textContent = counts['libur-nasional'] || '';
+        }
+
+        function renderCalendar() {
+            calendarLabel.textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+            calendarGrid.innerHTML = '';
+
+            const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Minggu
+            const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) {
+                const blank = document.createElement('div');
+                blank.className = 'aspect-square';
+                calendarGrid.appendChild(blank);
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`;
+                const isToday = viewYear === today.getFullYear() && viewMonth === today.getMonth() && d === today.getDate();
+                const isSelected = selectedDate === dateStr;
+                const status = statusMap[dateStr];
+
+                const cell = document.createElement('div');
+                cell.dataset.date = dateStr;
+                cell.className = 'day-cell aspect-square flex items-center justify-center rounded-lg text-xs sm:text-sm text-gray-700 border border-transparent hover:border-gray-300 transition-colors cursor-pointer';
+
+                if (status) {
+                    cell.classList.add(STATUS_CLASS[status] || '');
+                    cell.title = STATUS_LABEL[status] + (liburNasionalMap[dateStr] ? ` — ${liburNasionalMap[dateStr]}` : '');
+                }
+
+                if (isSelected) {
+                    cell.classList.add('bg-[#0F828C]', 'text-white', 'font-semibold', 'border-[#0F828C]');
+                } else if (isToday) {
+                    cell.classList.add('ring-2', 'ring-[#0F828C]', 'font-semibold', 'text-[#0F828C]');
+                }
+
+                cell.addEventListener('click', () => {
+                    const dateInput = document.getElementById('tanggal');
+                    if (dateInput) {
+                        dateInput.value = cell.dataset.date;
+                        dateInput.dispatchEvent(new Event('change'));
+                    }
+                    selectedDate = cell.dataset.date;
+                    renderCalendar();
+                });
+
+                cell.textContent = d;
+                calendarGrid.appendChild(cell);
+            }
+
+            updateMonthCounts();
+        }
+
+        prevBtn.addEventListener('click', () => {
+            viewMonth--;
+            if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+            renderCalendar();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            viewMonth++;
+            if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+            renderCalendar();
+        });
+
+        loadCalendarData();
+
+        // biar logic kamu bisa panggil ulang render setelah nge-fetch data status
+        window.renderMiniCalendar = renderCalendar;
+        window.refreshMiniCalendar = loadCalendarData;
+    })();
     </script>
 </body>
-
 </html>

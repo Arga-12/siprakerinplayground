@@ -1,145 +1,147 @@
-# Siprakerin fetching datas playground
+# Siprakerin playground
 
-Ini adalah project gabut yang aku buat untuk membantu ku bermain-main supabase mengunakan fetching dengan **JavaScript** _hehe_. Dengan memiliki logic fetching2 yang ada seperti:
+Okay so this started as me messing around with Supabase and fetching stuff with **JavaScript** `hehe`. Essentially it logs in with my own credentials, grabs a bearer token, and uses that to fetch + send attendance data straight to the **Siprakerin** Supabase project.
 
-- Menggunakan kredensial user dari `.env` untuk memiliki token bearer yang nanti digunakan sebagai izin mengambil dan mengirim data fetching di supabase **Siprakerin**
-- Mengirim (memfetching) data kehadiran dengan keterangan `hadir` `izin` dan `libur`, serta bisa memilih tanggal kehadiran yang ingin dipilih.
-- Automasi hadir sekali setiap booting laptop atau pc akan diterapkan terlebih dahulu menggunakan `linux` (karena punya setting untuk menjalankan command setiap booting) _cooming soon~_
+What it can do right now:
 
-> **Notes — Fitur Izin & Izin Lanjutan:**
-> Untuk keterangan `izin`, playground sekarang mendukung upload foto surat izin langsung ke Supabase Storage (bucket `izin`) — persis seperti yang dilakukan platform siprakerin.com.
+- Logs in using the credentials from `.env`, gets the token, and uses it as the pass to hit Supabase REST + RPC.
+- Submits attendance with the statuses `hadir` (present), `izin` (permission), and `libur` (holiday). Oh and you can pick **any date you want**, not just today.
+- **Izin with a photo**: uploads the permission letter straight to Supabase Storage (bucket `izin`), just like the real siprakerin.com flow.
+- **Extended permission**: if yesterday (H-1) you already filled it as `izin`, the system detects that and automatically reuses the previous day's permission letter photo. So no need to upload the same letter over and over when you're off for a few days in a row. You can still swap it with a fresh file if you want.
+- **Auto-fill missing absences**: pulls the official alpha dates from the central server (via the `calculate_alpha_dates_for_student` RPC) and fills each one with a `hadir` entry automatically. One click, done.
+- **Mini calendar + stats**: shows every day of the month color-coded by status — present, permission, alpha, holiday, national holiday. You can hop between months and see the count for each status. Click a day and it auto-fills the date field on the form. Handy.
+- **Journal history**: full table view of every entry you've made, with pagination and the ability to delete entries.
+- **Live system logs**: a running feed of everything the server's doing while you play with it — fetches, submits, errors, the whole thing — rendered right in the browser.
+
+> **Note — how the date thing works:** the only "trick" here is that I skip the rule that locks you to today's date, and I set the `keterangan` + `kegiatan` values myself. If you sniff the request the real platform sends, it looks pretty much like this:
 >
-> Ada juga fitur **Izin Lanjutan** yang meniru logika platform asli: saat kamu submit izin, sistem otomatis cek apakah jurnal kemarin (H-1) juga berketerangan `izin`. Kalau iya, foto surat dari hari sebelumnya akan dipakai ulang secara otomatis — jadi tidak perlu upload surat yang sama berkali-kali saat izin beberapa hari berturut-turut. Kalau mau ganti dengan foto baru, tetap bisa upload file melalui kolom yang tersedia di form.
+> ```js
+> const payload = {
+>   id_siswa: studentIds.id_siswa,
+>   tanggal: journalDate,
+>   kegiatan: activity,
+>   keterangan: keterangan,
+>   id_industri: studentIds.id_industri,
+>   id_kelas: studentIds.id_kelas
+> };
+> ```
+>
+> Funny part is Siprakerin doesn't actually validate the date server-side — Supabase just accepts whatever you send. So `thanks, I guess :')`
 
-Logic yang kuberikan hanya mengbypass peraturan tidak bisa memilih tanggal kehadiran saja, serta mengeset nilai dari keterangan dan kegiatan:
+## Wanna use it?
 
-```
-# Jika kalian inspect sendiri request yang dikirim ke siprakerin kurang lebih bentuknya sama seperti ini
-const  payload  = {
-	id_siswa:  studentIds.id_siswa,
-	tanggal:  journalDate,
-	kegiatan:  activity,
-	keterangan:  keterangan,
-	id_industri:  studentIds.id_industri,
-	id_kelas:  studentIds.id_kelas
-};
-```
+> Fair warning: if you fork it and tweak things for yourself and something breaks, that's on you. I'm not liable.
 
-Unexpected juga bahwa logic siprakerin tidak memfilter atau mengamankan value tanggal agar supabase hanya menerima tanggal secara realtime saja, bukan tanggal yang bisa diatur sesuka hati oleh client. _makasih yak_
-
-## Want to use it?
-
-_Script yang telah kamu ubah sendirinya untuk keperluanmu sendiri bukanlah tanggung jawab saya jika mengalami kesalahan._
-
-### Setup Awal
-
-**1. Clone dan Install Dependencies**
+### 1. Clone & install
 
 ```bash
-# Clone dulu reponya
 git clone https://github.com/Arga-12/siprakerinplayground.git
 cd siprakerinplayground
 
-# Install UI dependencies
 cd ui
 npm install
-
-# Install automation dependencies
-cd ../automasi
-npm install
-
-# Kembali ke root project
-cd ..
 ```
 
-**2. Setup Kredensial (.env)**
+### 2. Set up credentials (`.env`)
 
-Buat file `.env` di **root folder** (sejajar dengan folder `ui` dan `automasi` // diluar folder `ui` dan `automasi`), lalu isi dengan kredensial mu:
+Create a `.env` file in the **root folder** (right next to the `ui` folder), then fill it with your own credentials:
 
 ```env
-SUPABASE_URL=kunjungi portofolio grafikarsa user Argandull
-SUPABASE_ANON_KEY=kunjungi portofolio grafikarsa user Argandull
-EMAIL=your_email@example.com
-PASSWORD=your_password_here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your_anon_key_here
+USER_EMAIL=your_email@example.com
+USER_PASSWORD=your_password_here
 ```
 
-> Kamu bisa copas dari `.env.example` sebagai template
+There's an `.env.example` you can copy and edit.
 
-**3. Build Tailwind CSS (Wajib!)**
+Optional extras you can add if you already know your IDs:
 
-Sebelum pertama kali menjalankan server, kamu **HARUS** build Tailwind CSS dulu (biar gak burik mas):
+```env
+ID_SISWA=your_student_uuid
+ID_KELAS=your_class_id
+ID_INDUSTRI=your_industry_id
+```
+
+### 3. Build Tailwind CSS first
+
+Yeah, you have to do this before the first run, otherwise the page looks like garbage.
 
 ```bash
-# Dari root folder, pindah ke /ui
 cd ui
-
-# Build CSS (hanya sekali atau jika ada perubahan styling)
 npm run build:css
 ```
 
-**All donee!** enjoy your playground
+That's it. Enjoy.
 
 ---
 
-### Menjalankan Aplikasi
+## Running the app
 
-#### **Opsi 1: Development Mode (Recommended)**
+#### Dev mode (recommended)
 
-Mode ini akan auto-rebuild CSS setiap kali kamu ubah file `input.css`:
+This watches your CSS and rebuilds it whenever you touch `input.css`:
 
 ```bash
-# Dari folder /ui
 npm run watch:css
 ```
 
-Lalu di terminal baru, jalankan server:
+Then in a *separate terminal*, boot the server:
 
 ```bash
-# Dari folder /ui (terminal baru)
 npm run dev
 ```
 
-#### **Opsi 2: Production Mode**
+#### Production mode
 
-Jika tidak ada perubahan styling, cukup jalankan server saja:
+No styling changes? Just run the server:
 
 ```bash
-# Dari folder /ui
 npm run dev
 ```
 
-> **Catatan:** Pastikan file `.env` berada di **root folder** (diluar /ui dan /automasi)
+> Heads up: `.env` must live in the **root folder** (outside of `ui`).
 
 ---
 
-### Untuk Menyalakan Ulang Server
+## Restarting the server
 
 ```bash
-# Dari /siprakerinplayground (root folder)
 cd ui
 npm run dev
 ```
 
-> **Penting:** Jika kamu ubah styling di `input.css`, jalankan `npm run build:css` atau `npm run watch:css` dulu sebelum reload browser!
+> If you changed anything in `input.css`, run `npm run build:css` (or `watch:css`) before refreshing the browser, otherwise your changes won't show up.
 
 ---
 
-### Untuk Mengupdate tool
+## Updating the tool
+
+Grab the latest stuff:
 
 ```bash
-# Dari /siprakerinplayground (root folder)
 git pull
 ```
 
-### Script yang Tersedia
+If the structure changed a lot (folders got renamed/removed, files moved around), a plain `git pull` might leave leftovers behind. Your machine can end up matching the newest push 100% with:
 
-Di folder `/ui`, kamu bisa gunakan script berikut:
+```bash
+git fetch origin main
+git reset --hard origin/main
+git clean -fd
+```
 
-| Script              | Fungsi                                                    |
-| ------------------- | --------------------------------------------------------- |
-| `npm run dev`       | Jalankan server development dengan nodemon                |
-| `npm run start`     | Jalankan server production                                |
-| `npm run build:css` | Build Tailwind CSS sekali (untuk production)              |
-| `npm run watch:css` | Auto-rebuild CSS setiap ada perubahan (untuk development) |
+> Heads up: that force-matches your whole folder to the latest push and deletes any local files that aren't in the repo anymore. If you've got uncommitted changes you care about, commit them first.
 
-Well done, silahkan isi kehadiran kemarin jika lupa.. `jangan boong lo yaa :3`
+## Available scripts
+
+All of these run inside `/ui`:
+
+| Script              | What it does                                           |
+| ------------------- | ----------------------------------------------------- |
+| `npm run dev`       | Dev server with nodemon (auto-restart on changes)     |
+| `npm run start`     | Production server                                     |
+| `npm run build:css` | One-time Tailwind CSS build                           |
+| `npm run watch:css` | Auto-rebuild CSS on changes (for development)         |
+
+Alright, go fill in those past journals if you missed any. And please — no lying about your attendance, okay :3

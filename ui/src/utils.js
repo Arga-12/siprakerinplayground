@@ -1,16 +1,15 @@
-
 const activities = [
-    "test",
-    "makan"
+    "hadir",
+    "hаdir",
+    "𝚑𝚊𝚍𝚒𝚛",
+    "𝐡adir"
 ];
 
 function getRandomActivity() {
-    const randomIndex = Math.floor(Math.random() * activities.length);
-    return activities[randomIndex];
+    return activities[Math.floor(Math.random() * activities.length)];
 }
 
 function getRandomDelay(maxMinutes = 15) {
-    // Return delay in milliseconds
     const minutes = Math.floor(Math.random() * maxMinutes);
     const seconds = Math.floor(Math.random() * 60);
     return (minutes * 60 + seconds) * 1000;
@@ -19,5 +18,5 @@ function getRandomDelay(maxMinutes = 15) {
 module.exports = {
     getRandomActivity,
     getRandomDelay,
-    activities // Exporting list if needed for UI later
+    activities
 };

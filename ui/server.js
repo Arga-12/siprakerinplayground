@@ -2,25 +2,27 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const multer = require('multer');
 const path = require('path');
-const { login } = require('../automasi/src/auth');
-const { getStudentDetails, submitJournal, getJournalHistory, deleteJournal, updateJournal, checkKemarinIzin, getLastIzinFoto, getYesterdayDate, uploadFotoIzin } = require('../automasi/src/journal');
+const { login } = require('./src/auth');
+const {
+    getStudentDetails, submitJournal, getJournalHistory, deleteJournal,
+    updateJournal, checkKemarinIzin, getLastIzinFoto, getYesterdayDate,
+    uploadFotoIzin, getAlphaDates, getHariLiburNasional
+} = require('./src/journal');
+const { getRandomActivity } = require('./src/utils');
 
-// Note: Config loading is now handled by automasi/src/config.js which is imported by auth/journal
-// But we might want to ensure dotenv is loaded for this file if we access process.env directly here too.
 const dotenv = require('dotenv');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// Multer: memory storage (file tidak disimpan di disk, langsung ke Supabase Storage)
+//multer: file langsung ke memory, gak disimpan di disk
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 }, // Max 5MB
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        // Hanya izinkan gambar dan PDF
         const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
         if (allowed.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error('Format file tidak didukung. Gunakan JPG, PNG, WebP, atau PDF.'));
+            cb(new Error('Unsupported file format. Use JPG, PNG, or WebP.'));
         }
     }
 });
@@ -59,21 +61,32 @@ let sessionDefaults = {
 };
 
 let sessionToken = null;
-let journalHistory = [];
 
 // --- INITIALIZE SERVER ---
+async function connectWithRetry() {
+    const MAX_ATTEMPTS = 5;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            addLog('AUTH', attempt === 1 ? 'Initiating login...' : `Retrying login (${attempt}/${MAX_ATTEMPTS})...`);
+            return await login();
+        } catch (error) {
+            if (attempt === MAX_ATTEMPTS) throw error;
+            const delay = attempt * 3000;
+            addLog('WARN', `Login failed (${error.message}). Retrying in ${delay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
 async function startServer() {
     try {
-        addLog('AUTH', 'Initiating login...');
-        const { user, token } = await login();
-        sessionToken = token; // Store token for later use
+        const { user, token } = await connectWithRetry();
+        sessionToken = token;
         addLog('AUTH', 'Login successful!');
 
         addLog('FETCH', 'Fetching student details...');
-        // getStudentDetails logs internally to stdout, but we also track progress here
         const details = await getStudentDetails(user);
 
-        // Update Global State
         sessionDefaults = {
             id_siswa: details.id_siswa || '',
             id_kelas: details.id_kelas || '',
@@ -92,23 +105,12 @@ async function startServer() {
             addLog('WARN', 'System ready but some credentials are MISSING.');
         }
 
-        // Fetch Journal History
-        addLog('FETCH', 'Loading journal history...');
-        try {
-            journalHistory = await getJournalHistory(sessionToken, user.id, { page: 1, limit: 50 });
-            addLog('SUCCESS', `Loaded ${journalHistory.length} journal entries.`);
-        } catch (histErr) {
-            addLog('ERROR', `Failed to load journal history: ${histErr.message}`);
-        }
-
-        app.listen(port, () => {
-            addLog('READY', `UI Server running at http://localhost:${port}`);
-        });
+        addLog('READY', `UI Server running at http://localhost:${port}`);
+        app.listen(port);
 
     } catch (error) {
         addLog('FATAL', `Initialization failed: ${error.message}`);
         console.error(error);
-        // We still listen so the user can see the logs in UI even if init failed
         app.listen(port, () => {
             addLog('ERROR', 'Server running in error state.');
         });
@@ -122,33 +124,65 @@ app.use(express.static('public'));
 
 app.get('/api/logs', (req, res) => res.json(systemLogs));
 
+app.get('/api/calendar', async (req, res) => {
+    try {
+        addLog('FETCH', 'Preparing calendar statistics data...');
+
+        const [journals, liburNasional] = await Promise.all([
+            getJournalHistory(sessionToken, sessionDefaults.id_siswa).catch(() => []),
+            getHariLiburNasional(sessionToken)
+        ]);
+
+        let alphaDates = [];
+        try {
+            alphaDates = await getAlphaDates(sessionDefaults.id_siswa);
+        } catch (e) {
+            addLog('WARN', `Failed to fetch alpha dates: ${e.message}`);
+        }
+
+        const statuses = {};
+
+        journals.forEach(j => {
+            if (['hadir', 'izin', 'libur'].includes(j.keterangan)) {
+                statuses[j.tanggal] = j.keterangan;
+            }
+        });
+
+        alphaDates.forEach(d => {
+            if (!statuses[d]) statuses[d] = 'alfa';
+        });
+
+        const liburNasionalMap = {};
+        liburNasional.forEach(item => {
+            if (!statuses[item.tanggal]) statuses[item.tanggal] = 'libur-nasional';
+            liburNasionalMap[item.tanggal] = item.nama;
+        });
+
+        addLog('SUCCESS', `Calendar data ready: ${journals.length} journals, ${alphaDates.length} alpha, ${liburNasional.length} national holidays.`);
+
+        res.json({ statuses, liburNasionalMap });
+    } catch (err) {
+        addLog('ERROR', `Calendar error: ${err.message}`);
+        res.status(500).json({ error: 'Failed to fetch calendar data' });
+    }
+});
+
+//ambil SEMUA jurnal — client handle paginasi (10 per page)
 app.get('/api/journals', async (req, res) => {
     try {
-        // Fetch fresh data from database to ensure real-time updates
-        const freshJournals = await getJournalHistory(sessionToken, sessionDefaults.id_siswa, { page: 1, limit: 50 });
+        const freshJournals = await getJournalHistory(sessionToken, sessionDefaults.id_siswa);
 
-        // Separate journals by type and prepare izin data
         const allJournals = freshJournals.map(j => ({
             id: j.id_jurnal,
             tanggal: j.tanggal,
             kegiatan: j.kegiatan,
             keterangan: j.keterangan,
+            foto: j.foto || null,
             created_at: j.created_at
         }));
 
-        const izinData = freshJournals
-            .filter(j => j.detail_izin)
-            .map(j => ({
-                id_jurnal: j.id_jurnal,
-                tanggal: j.tanggal,
-                alasan: j.kegiatan,
-                foto: j.detail_izin.foto,
-                created_at: j.detail_izin.created_at
-            }));
-
         res.json({
-            journals: allJournals,
-            permissions: izinData
+            journals: allJournals
         });
     } catch (err) {
         console.error('Error fetching journals:', err);
@@ -156,9 +190,7 @@ app.get('/api/journals', async (req, res) => {
     }
 });
 
-// GET: Cek apakah kemarin izin (dan apakah ada foto kemarin)
-// Meniru logika platform asli yang cek sebelum tampilkan toggle izin lanjutan
-// Query param: ?tanggal=YYYY-MM-DD (opsional, default hari ini)
+//cek apakah kemarin izin + ada foto atau enggak
 app.get('/api/check-kemarin-izin', async (req, res) => {
     try {
         const tanggal = req.query.tanggal || new Date().toISOString().split('T')[0];
@@ -168,7 +200,6 @@ app.get('/api/check-kemarin-izin', async (req, res) => {
 
         let fotoKemarin = null;
         if (isKemarinIzin) {
-            // Jika kemarin izin, cek juga apakah ada foto kemarin
             fotoKemarin = await getLastIzinFoto(sessionDefaults.id_siswa, tanggal);
         }
 
@@ -176,9 +207,7 @@ app.get('/api/check-kemarin-izin', async (req, res) => {
             tanggal_dicek: kemarin,
             tanggal_submit: tanggal,
             is_kemarin_izin: isKemarinIzin,
-            // true = toggle izin lanjutan tersedia (seperti platform asli)
             izin_lanjutan_tersedia: isKemarinIzin,
-            // ada foto = bisa reuse, tidak ada = user perlu upload manual
             foto_kemarin_ada: !!fotoKemarin,
             foto_kemarin_path: fotoKemarin || null
         });
@@ -198,8 +227,8 @@ app.get('/', (req, res) => {
     });
 });
 
-// POST /submit - gunakan multer untuk handle multipart/form-data (ada file upload)
-app.post('/submit', upload.single('foto_izin'), async (req, res) => {
+//submit jurnal baru via form multipart
+app.post('/', upload.single('foto_izin'), async (req, res) => {
     const { kegiatan, keterangan, tanggal } = req.body;
 
     addLog('INFO', 'Processing journal submission...');
@@ -209,7 +238,7 @@ app.post('/submit', upload.single('foto_izin'), async (req, res) => {
         return res.render('index', {
             defaults: req.body,
             message: null,
-            error: 'Mohon isi kegiatan!',
+            error: 'Please fill in the activity!',
             logs: systemLogs,
             supabaseUrl: process.env.SUPABASE_URL
         });
@@ -220,26 +249,24 @@ app.post('/submit', upload.single('foto_izin'), async (req, res) => {
         return res.render('index', {
             defaults: req.body,
             message: null,
-            error: 'Mohon pilih tanggal!',
+            error: 'Please select a date!',
             logs: systemLogs,
             supabaseUrl: process.env.SUPABASE_URL
         });
     }
 
-    // Validate keterangan - only 'hadir' and 'libur' allowed
     const validKeterangan = ['hadir', 'libur', 'izin'];
     if (!validKeterangan.includes(keterangan)) {
-        addLog('WARN', `Submission rejected: Invalid keterangan "${keterangan}"`);
+        addLog('WARN', 'Submission rejected: Invalid status. Only "hadir", "libur", or "izin" are allowed.');
         return res.render('index', {
             defaults: req.body,
             message: null,
-            error: 'Keterangan tidak valid! Hanya "hadir" atau "libur" dan "izin" yang diperbolehkan.',
+            error: 'Invalid status! Only "hadir", "libur", or "izin" are allowed.',
             logs: systemLogs,
             supabaseUrl: process.env.SUPABASE_URL
         });
     }
 
-    // Validate date range - only allow between 2026-01-05 and 2026-10-01
     const minDate = new Date('2026-01-05');
     const maxDate = new Date('2026-10-01');
     const submittedDate = new Date(tanggal);
@@ -249,7 +276,7 @@ app.post('/submit', upload.single('foto_izin'), async (req, res) => {
         return res.render('index', {
             defaults: req.body,
             message: null,
-            error: 'Tanggal terlalu lama! Jurnal hanya dapat dibuat mulai dari 5 Januari 2026.',
+            error: 'Date too old! Journals can only be created starting from January 5, 2026.',
             logs: systemLogs,
             supabaseUrl: process.env.SUPABASE_URL
         });
@@ -260,14 +287,13 @@ app.post('/submit', upload.single('foto_izin'), async (req, res) => {
         return res.render('index', {
             defaults: req.body,
             message: null,
-            error: 'Tanggal terlalu jauh! Jurnal hanya dapat dibuat hingga 1 Oktober 2026.',
+            error: 'Date too far ahead! Journals can only be created until October 1, 2026.',
             logs: systemLogs,
             supabaseUrl: process.env.SUPABASE_URL
         });
     }
 
     try {
-        // We reuse the sessionDefaults for IDs
         const studentIds = {
             id_siswa: sessionDefaults.id_siswa,
             id_kelas: sessionDefaults.id_kelas,
@@ -280,21 +306,17 @@ app.post('/submit', upload.single('foto_izin'), async (req, res) => {
 
         addLog('FETCH', 'Sending data to Supabase...');
 
-        // Auto-detect izin lanjutan — meniru logika platform asli siprakerin.com
-        // Cek apakah jurnal kemarin (H-1) berketerangan 'izin'
         let izinLanjutan = false;
         if (keterangan === 'izin') {
             izinLanjutan = await checkKemarinIzin(sessionDefaults.id_siswa, tanggal);
-            addLog('INFO', `Izin lanjutan: ${izinLanjutan ? 'AKTIF (kemarin izin, foto dipakai ulang)' : 'nonaktif (perlu upload foto baru)'}`);
+            addLog('INFO', `Extended permission: ${izinLanjutan ? 'ACTIVE (yesterday was permission, photo reused)' : 'inactive (new photo upload required)'}`);
         }
 
-        // Call the imported logic with tanggal parameter
         const submittedData = await submitJournal(null, kegiatan, studentIds, keterangan, tanggal, izinLanjutan);
 
-        // Handle upload foto jika ada file dikirim dan keterangan = izin
         if (keterangan === 'izin' && req.file && submittedData && submittedData[0]) {
             const newJurnalId = submittedData[0].id_jurnal;
-            addLog('FETCH', `Mengupload foto surat izin ke storage (${req.file.originalname})...`);
+            addLog('FETCH', `Uploading permission letter to storage (${req.file.originalname})...`);
             try {
                 const { fotoPath } = await uploadFotoIzin(
                     newJurnalId,
@@ -303,19 +325,18 @@ app.post('/submit', upload.single('foto_izin'), async (req, res) => {
                     req.file.originalname,
                     req.file.mimetype
                 );
-                addLog('SUCCESS', `Foto izin berhasil diupload: ${fotoPath}`);
+                addLog('SUCCESS', `Permission letter uploaded successfully: ${fotoPath}`);
             } catch (uploadErr) {
-                // Jurnal sudah tersimpan, hanya foto yang gagal
-                addLog('WARN', `Jurnal tersimpan tapi foto gagal diupload: ${uploadErr.message}`);
+                addLog('WARN', `Journal saved but photo upload failed: ${uploadErr.message}`);
             }
         } else if (keterangan === 'izin' && !req.file && !izinLanjutan) {
-            addLog('INFO', 'Izin disimpan tanpa foto (tidak ada file yang diupload).');
+            addLog('INFO', 'Permission saved without photo (no file uploaded).');
         }
 
         addLog('SUCCESS', 'Journal submitted successfully!');
         res.render('index', {
-            defaults: sessionDefaults, // Reset form to defaults (but keep IDs)
-            message: 'Jurnal berhasil dikirim!',
+            defaults: sessionDefaults,
+            message: 'Journal submitted successfully!',
             error: null,
             logs: systemLogs,
             supabaseUrl: process.env.SUPABASE_URL
@@ -333,7 +354,7 @@ app.post('/submit', upload.single('foto_izin'), async (req, res) => {
     }
 });
 
-// DELETE journal entry
+//hapus jurnal
 app.delete('/api/journal/:id', async (req, res) => {
     const { id } = req.params;
     addLog('INFO', `Delete request for journal ID: ${id}`);
@@ -341,30 +362,77 @@ app.delete('/api/journal/:id', async (req, res) => {
     try {
         await deleteJournal(id);
         addLog('SUCCESS', `Journal ${id} deleted successfully`);
-        res.json({ success: true, message: 'Jurnal berhasil dihapus' });
+        res.json({ success: true, message: 'Journal deleted successfully' });
     } catch (err) {
         addLog('ERROR', `Delete error: ${err.message}`);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// PATCH journal entry
+//update jurnal
 app.patch('/api/journal/:id', async (req, res) => {
     const { id } = req.params;
-    const updates = req.body; // {kegiatan, keterangan, tanggal}
+    const updates = req.body;
 
     addLog('INFO', `Update request for journal ID: ${id}`);
-    console.log('Update data:', updates); // Debug log
 
     try {
         const result = await updateJournal(id, updates);
         addLog('SUCCESS', `Journal ${id} updated successfully`);
-        res.json({ success: true, message: 'Jurnal berhasil diupdate', data: result });
+        res.json({ success: true, message: 'Journal updated successfully', data: result });
     } catch (err) {
         addLog('ERROR', `Update error: ${err.message}`);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// Start the sequence
+//auto-fill semua tanggal alpha pake data dari RPC
+app.post('/api/auto-fill', async (req, res) => {
+    try {
+        addLog('INFO', 'Requesting official alpha attendance data from central server...');
+
+        const missingDates = await getAlphaDates(sessionDefaults.id_siswa);
+
+        if (!missingDates || missingDates.length === 0) {
+            addLog('SUCCESS', 'No missing absences, everything is clear!');
+            return res.json({ success: true, message: 'All absences are already filled, nothing is missing!' });
+        }
+
+        addLog('INFO', `Found ${missingDates.length} official alpha days. Starting auto-fill...`);
+
+        const studentIds = {
+            id_siswa: sessionDefaults.id_siswa,
+            id_kelas: sessionDefaults.id_kelas,
+            id_industri: sessionDefaults.id_industri
+        };
+
+        let filledCount = 0;
+
+        for (const dateStr of missingDates) {
+            const keterangan = 'hadir';
+            const activity = getRandomActivity();
+
+            try {
+                await submitJournal(sessionToken, activity, studentIds, keterangan, dateStr, false);
+                filledCount++;
+                addLog('SUCCESS', `Auto-fill: ${dateStr} -> ${keterangan} (${activity})`);
+
+                //500ms delay to avoid the rate limit
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (err) {
+                addLog('ERROR', `Auto-fill failed for date ${dateStr}: ${err.message}`);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Done! Successfully filled ${filledCount} missing absences based on central data.`
+        });
+
+    } catch (error) {
+        addLog('FATAL', `Auto-fill error: ${error.message}`);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 startServer();
