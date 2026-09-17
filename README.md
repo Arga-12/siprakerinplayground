@@ -4,7 +4,6 @@ Okay so this started as me messing around with Supabase and fetching stuff with 
 
 What it can do right now:
 
-- Logs in using the credentials from `.env`, gets the token, and uses it as the pass to hit Supabase REST + RPC.
 - Submits attendance with the statuses `hadir` (present), `izin` (permission), and `libur` (holiday). Oh and you can pick **any date you want**, not just today.
 - **Izin with a photo**: uploads the permission letter straight to Supabase Storage (bucket `izin`), just like the real siprakerin.com flow.
 - **Extended permission**: if yesterday (H-1) you already filled it as `izin`, the system detects that and automatically reuses the previous day's permission letter photo. So no need to upload the same letter over and over when you're off for a few days in a row. You can still swap it with a fresh file if you want.
@@ -30,7 +29,7 @@ What it can do right now:
 
 ## Wanna use it?
 
-> Fair warning: if you fork it and tweak things for yourself and something breaks, that's on you. I'm not liable.
+> Fair warning: if you fork it and tweak things for yourself and something breaks, that's on you. I'm NOT liable. 🫩
 
 ### 1. Clone & install
 
@@ -38,7 +37,6 @@ What it can do right now:
 git clone https://github.com/Arga-12/siprakerinplayground.git
 cd siprakerinplayground
 
-cd ui
 npm install
 ```
 
@@ -68,7 +66,6 @@ ID_INDUSTRI=your_industry_id
 Yeah, you have to do this before the first run, otherwise the page looks like garbage.
 
 ```bash
-cd ui
 npm run build:css
 ```
 
@@ -106,11 +103,6 @@ npm run dev
 
 ## Restarting the server
 
-```bash
-cd ui
-npm run dev
-```
-
 > If you changed anything in `input.css`, run `npm run build:css` (or `watch:css`) before refreshing the browser, otherwise your changes won't show up.
 
 ---
@@ -127,6 +119,7 @@ If the structure changed a lot (folders got renamed/removed, files moved around)
 
 ```bash
 git fetch origin main
+git checkout main
 git reset --hard origin/main
 git clean -fd
 ```
