@@ -52,6 +52,7 @@ USER_PASSWORD=your_password_here
 ```
 
 There's an `.env.example` you can copy and edit.
+Supabase URL u're looking for, it is in my Grafikarsa profile.
 
 Optional extras you can add if you already know your IDs:
 
